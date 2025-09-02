@@ -1,0 +1,1079 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}LLM Evaluation Manual{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4" data-bs-theme="light">
+    <div class="row justify-content-center">
+        <div class="col-12 col-xl-10">
+            <!-- Header -->
+            <div class="d-flex align-items-center mb-4">
+                <i class="ph ph-book-open text-primary me-3" style="font-size: 2.5rem;"></i>
+                <div>
+                    <h1 class="mb-1">LLM Evaluation Platform</h1>
+                    <p class="text-muted mb-0">Complete Guide to LLM-as-a-Judge Benchmarking</p>
+                </div>
+                <span class="badge bg-warning ms-auto">This manual was written by AI</span>
+            </div>
+
+            <!-- Introduction -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title h4 mb-3">
+                        <i class="ph ph-lightbulb text-primary me-2"></i>
+                        What is this Platform?
+                    </h2>
+                    <p class="lead">
+                        This platform enables you to create comprehensive benchmarks for evaluating Large Language Model
+                        (LLM) performance using LLM-as-a-Judge methodology. Instead of relying on simple string matching
+                        or basic metrics, you can create sophisticated evaluation criteria that leverage the reasoning
+                        capabilities of LLMs to assess model outputs with human-like accuracy.
+                    </p>
+                    <div class="alert alert-info">
+                        <i class="ph ph-info me-2"></i>
+                        <strong>LLM-as-a-Judge</strong> uses one LLM to evaluate the outputs of another LLM based on
+                        custom criteria, enabling nuanced assessment of qualities like correctness, coherence, safety,
+                        and domain-specific requirements.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Overview -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title h4 mb-3">
+                        <i class="ph ph-flow-arrow text-primary me-2"></i>
+                        Evaluation Workflow
+                    </h2>
+                    <p class="mb-3">Follow this step-by-step process to create and run your LLM benchmarks:</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                        style="width: 48px; height: 48px;">
+                                        <span class="fw-bold">1</span>
+                                    </div>
+                                    <h5 class="card-title">Set up Providers</h5>
+                                    <p class="card-text small text-muted">Configure API connections to LLM services</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                        style="width: 48px; height: 48px;">
+                                        <span class="fw-bold">2</span>
+                                    </div>
+                                    <h5 class="card-title">Set up Models</h5>
+                                    <p class="card-text small text-muted">Define models for testing and evaluation</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                        style="width: 48px; height: 48px;">
+                                        <span class="fw-bold">3</span>
+                                    </div>
+                                    <h5 class="card-title">Create Metrics</h5>
+                                    <p class="card-text small text-muted">Design evaluation criteria and scoring logic
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                        style="width: 48px; height: 48px;">
+                                        <span class="fw-bold">4</span>
+                                    </div>
+                                    <h5 class="card-title">Create Test Cases</h5>
+                                    <p class="card-text small text-muted">Build prompts and expected scenarios</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                        style="width: 48px; height: 48px;">
+                                        <span class="fw-bold">5</span>
+                                    </div>
+                                    <h5 class="card-title">Create Benchmarks</h5>
+                                    <p class="card-text small text-muted">Combine models, test cases, and metrics</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100 border-primary">
+                                <div class="card-body text-center">
+                                    <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+                                        style="width: 48px; height: 48px;">
+                                        <span class="fw-bold">6</span>
+                                    </div>
+                                    <h5 class="card-title">Run & Evaluate</h5>
+                                    <p class="card-text small text-muted">Execute benchmarks and analyze results with
+                                        automatic deduplication</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Steps -->
+            <div class="accordion" id="tutorialAccordion">
+                <!-- Step 1: Providers -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="providersHeading">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#providersCollapse" aria-expanded="true" aria-controls="providersCollapse">
+                            <i class="ph ph-plugs text-primary me-2"></i>
+                            <strong>Step 1: Configure Providers</strong>
+                        </button>
+                    </h2>
+                    <div id="providersCollapse" class="accordion-collapse collapse show"
+                        aria-labelledby="providersHeading" data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>Providers are the API services that host your LLMs. You need to configure these first to
+                                enable communication with the models.</p>
+
+                            <h6 class="text-primary mb-2">Supported Providers:</h6>
+                            <p class="mb-">All providers following the OpenAI API standards are supported. You cann
+                                supply online APIs and locally hosted providers.</p>
+
+                            <h6 class="text-primary mb-2">Setup Instructions:</h6>
+                            <ol>
+                                <li>Go to <strong>Settings → Providers</strong></li>
+                                <li>Add a new provider with your API credentials</li>
+                            </ol>
+
+                            <div class="alert alert-warning">
+                                <i class="ph ph-warning me-2"></i>
+                                <strong>Security:</strong> API keys are sensitive.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Models -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="modelsHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#modelsCollapse" aria-expanded="false" aria-controls="modelsCollapse">
+                            <i class="ph ph-tray text-primary me-2"></i>
+                            <strong>Step 2: Configure Models</strong>
+                        </button>
+                    </h2>
+                    <div id="modelsCollapse" class="accordion-collapse collapse" aria-labelledby="modelsHeading"
+                        data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>Models represent specific LLM configurations that you want to test or use for evaluation.
+                            </p>
+
+                            <h6 class="text-primary mb-2">Models are used in two ways:</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="card border-info">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-info">
+                                                <i class="ph ph-target me-1"></i>
+                                                Target Models
+                                            </h6>
+                                            <p class="card-text small">Models you want to evaluate and compare. These
+                                                will be tested against your benchmarks.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-warning">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-warning">
+                                                <i class="ph ph-scales me-1"></i>
+                                                Judge Models
+                                            </h6>
+                                            <p class="card-text small">Models used to evaluate the outputs of target
+                                                models. Usually high-quality models like GPT-4.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="my-3">Models are configured globally in the settings no matter if you want to
+                                    use them as target model or judge model.</p>
+                            </div>
+
+                            <h6 class="text-primary mb-2">Setup Instructions:</h6>
+                            <ol>
+                                <li>Go to <strong>Settings → Models</strong></li>
+                                <li>Add models by their model id (this has to match with your providers model id)</li>
+                                <li>Configure the pricing (future feature: cost analysis)</li>
+                            </ol>
+
+                            <div class="alert alert-info">
+                                <i class="ph ph-lightbulb me-2"></i>
+                                <strong>Tip:</strong> Use a more powerful model (like GPT-4) as your judge model for
+                                more accurate evaluations, even if you're testing smaller target models.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Metrics -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="metricsHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#metricsCollapse" aria-expanded="false" aria-controls="metricsCollapse">
+                            <i class="ph ph-chart-line text-primary me-2"></i>
+                            <strong>Step 3: Create Metrics</strong>
+                        </button>
+                    </h2>
+                    <div id="metricsCollapse" class="accordion-collapse collapse" aria-labelledby="metricsHeading"
+                        data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>Metrics define <em>how</em> to evaluate model outputs. This is the most critical part of
+                                your benchmark setup.</p>
+
+                            <h5 class="text-primary mb-3">Metric Types</h5>
+
+                            <!-- G-Eval Metrics -->
+                            <div class="card mb-4 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">
+                                        <i class="ph ph-article me-2"></i>
+                                        G-Eval Metrics (Simple & Flexible)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-3">G-Eval uses chain-of-thought reasoning to evaluate outputs based on
+                                        custom criteria. Best for most use cases.</p>
+
+                                    <h6 class="text-primary mb-2">Two Modes:</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <div class="card border-light">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">
+                                                        <i class="ph ph-article text-primary me-1"></i>
+                                                        Criteria-based
+                                                    </h6>
+                                                    <p class="card-text small">Write a natural language description of
+                                                        what to evaluate. The AI generates evaluation steps
+                                                        automatically.</p>
+                                                    <p class="card-text small"><strong>Example:</strong> "Determine
+                                                        whether the actual output is factually correct based on the
+                                                        expected output."</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card border-light">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">
+                                                        <i class="ph ph-check-square text-primary me-1"></i>
+                                                        Steps-based
+                                                    </h6>
+                                                    <p class="card-text small">Define specific evaluation steps for more
+                                                        control and consistency.</p>
+                                                    <p class="card-text small"><strong>Example:</strong> Step 1: "Check
+                                                        for factual contradictions", Step 2: "Assess completeness"</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h6 class="text-primary mb-2">When to use G-Eval:</h6>
+                                    <ul class="mb-3">
+                                        <li>Evaluating <strong>quality</strong>, <strong>style</strong>, or
+                                            <strong>coherence</strong>
+                                        </li>
+                                        <li>Assessing <strong>tone</strong>, <strong>structure</strong>, or
+                                            <strong>verbosity</strong>
+                                        </li>
+                                        <li>Most general evaluation needs</li>
+                                    </ul>
+
+                                    <h6 class="text-primary mb-2">Best Practices:</h6>
+                                    <ul class="mb-0">
+                                        <li><strong>Be specific:</strong> "Check for correct punctuation" is better than
+                                            "check writing quality"</li>
+                                        <li><strong>Use steps-based mode</strong> for more consistent results</li>
+                                        <li><strong>Use bivalent descriptors</strong> like reward for ... punish ...
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- DAG Metrics -->
+                            <div class="card mb-4 border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="mb-0">
+                                        <i class="ph ph-tree-structure me-2"></i>
+                                        DAG Metrics (Advanced & Deterministic)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-3">DAG (Directed Acyclic Graph) metrics create decision trees for
+                                        highly deterministic, multi-step evaluation.</p>
+
+                                    <h6 class="text-primary mb-2">Node Types:</h6>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6 col-lg-3">
+                                            <div class="card border-light">
+                                                <div class="card-body text-center">
+                                                    <i class="ph ph-gear text-primary" style="font-size: 1.5rem;"></i>
+                                                    <h6 class="card-title mt-2">Task Node</h6>
+                                                    <p class="card-text small">Processes data (e.g., extract headings,
+                                                        count words)</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3">
+                                            <div class="card border-light">
+                                                <div class="card-body text-center">
+                                                    <i class="ph ph-check-circle text-success"
+                                                        style="font-size: 1.5rem;"></i>
+                                                    <h6 class="card-title mt-2">Binary Judge</h6>
+                                                    <p class="card-text small">Yes/No decisions</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3">
+                                            <div class="card border-light">
+                                                <div class="card-body text-center">
+                                                    <i class="ph ph-circles-three text-info"
+                                                        style="font-size: 1.5rem;"></i>
+                                                    <h6 class="card-title mt-2">Multi Judge</h6>
+                                                    <p class="card-text small">Multiple choice decisions</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 col-lg-3">
+                                            <div class="card border-light">
+                                                <div class="card-body text-center">
+                                                    <i class="ph ph-trophy text-warning" style="font-size: 1.5rem;"></i>
+                                                    <h6 class="card-title mt-2">Verdict</h6>
+                                                    <p class="card-text small">Final score assignment</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h6 class="text-primary mb-2">When to use DAG:</h6>
+                                    <ul class="mb-3">
+                                        <li>Complex evaluation with <strong>multiple criteria</strong></li>
+                                        <li>Need for <strong>deterministic scoring</strong></li>
+                                        <li><strong>Format validation</strong> (document structure, required elements)
+                                        </li>
+                                        <li><strong>Multi-step reasoning</strong> with different scoring paths</li>
+                                    </ul>
+
+                                    <h6 class="text-primary mb-2">Best Practices:</h6>
+                                    <ul class="mb-0">
+                                        <li><strong>Start simple:</strong> Begin with basic decision trees</li>
+                                        <li><strong>Break down complex criteria</strong> into smaller steps</li>
+                                        <li><strong>Test each node independently</strong> before combining</li>
+                                        <li><strong>Use clear, specific criteria</strong> for each decision point</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- TALE Metrics (Card UI) -->
+                            <div class="card mb-4 border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0">
+                                        <i class="ph ph-globe me-2"></i>
+                                        TALE Metrics (Tool-Augmented LLM Evaluation)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-3">
+                                        <strong>TALE</strong> (Tool-Augmented LLM Evaluation) combines LLM-as-a-judge
+                                        with real-time web search. Unlike G-Eval and DAG, TALE actively retrieves and
+                                        synthesizes external evidence from the web to verify factual claims, making it
+                                        ideal for evaluating factual accuracy without requiring reference answers.
+                                    </p>
+
+                                    <h6 class="text-primary mb-2">How TALE Works</h6>
+                                    <ol>
+                                        <li><strong>Query Generation:</strong> Creates targeted search queries based on
+                                            the input question</li>
+                                        <li><strong>Web Search:</strong> Retrieves real-time information from search
+                                            engines</li>
+                                        <li><strong>Evidence Summarization:</strong> Condenses search results into
+                                            focused evidence</li>
+                                        <li><strong>Reflection:</strong> Evaluates evidence relevance and identifies
+                                            gaps</li>
+                                        <li><strong>Iterative Refinement:</strong> Refines searches based on previous
+                                            findings</li>
+                                        <li><strong>Final Judgment:</strong> Makes binary decisions with evidence-backed
+                                            rationale</li>
+                                    </ol>
+
+                                    <h6 class="text-primary mb-2">When to use TALE</h6>
+                                    <ul class="mb-3">
+                                        <li><strong>Factual Verification:</strong> Questions requiring current, accurate
+                                            information</li>
+                                        <li><strong>No Reference Needed:</strong> When you don't have ground truth
+                                            answers</li>
+                                        <li><strong>Current Events:</strong> Topics that change frequently or are recent
+                                        </li>
+                                        <li><strong>Fact-Checking:</strong> Verifying claims against authoritative
+                                            sources</li>
+                                        <li><strong>Knowledge Updates:</strong> Information that may be outdated in
+                                            training data</li>
+                                        <li><strong>Multi-source Verification:</strong> Claims requiring
+                                            cross-referencing</li>
+                                    </ul>
+
+                                    <h6 class="text-primary mb-2">When <span class="text-danger">NOT</span> to use TALE
+                                    </h6>
+                                    <ul class="mb-3">
+                                        <li><strong>Subjective Evaluation:</strong> Creative, opinion-based, or
+                                            stylistic assessments</li>
+                                        <li><strong>Internal Logic:</strong> Mathematical reasoning or code correctness
+                                        </li>
+                                        <li><strong>Private Information:</strong> Company-specific or confidential data
+                                        </li>
+                                        <li><strong>Cost Constraints:</strong> When web search costs are prohibitive
+                                        </li>
+                                        <li><strong>Offline Scenarios:</strong> When internet access is limited</li>
+                                        <li><strong>Speed Requirements:</strong> When immediate results are needed</li>
+                                    </ul>
+
+                                    <h6 class="text-primary mb-2">Configuration Options</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Setting</th>
+                                                    <th>Description</th>
+                                                    <th>Recommended Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>iterations</code></td>
+                                                    <td>Number of search-refine cycles</td>
+                                                    <td>3 (optimal trade-off)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>search_results</code></td>
+                                                    <td>Number of results per search</td>
+                                                    <td>3-5 (diverse sources)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>search_engine</code></td>
+                                                    <td>Primary search provider</td>
+                                                    <td>Serper, Google, Bing</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>fallback_engines</code></td>
+                                                    <td>Alternative search engines</td>
+                                                    <td>Configure 2-3 for rate limiting</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="alert alert-warning mt-3">
+                                        <i class="ph ph-lightning me-2"></i>
+                                        <strong>Rate Limiting Tip:</strong> Configure multiple search engines (Google,
+                                        Bing, DuckDuckGo) as fallbacks. TALE will automatically switch providers when
+                                        rate limits are hit, ensuring uninterrupted evaluation.
+                                    </div>
+
+                                    <h6 class="text-primary mb-2">Best Practices for TALE</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-success"><i class="ph ph-check me-2"></i>Do's</h6>
+                                            <ul>
+                                                <li>Use for factual, verifiable claims</li>
+                                                <li>Configure multiple search engines</li>
+                                                <li>Monitor search API costs</li>
+                                                <li>Review evidence in results</li>
+                                                <li>Use 3 iterations for most cases</li>
+                                                <li>Test with recent events</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-danger"><i class="ph ph-x me-2"></i>Don'ts</h6>
+                                            <ul>
+                                                <li>Use for subjective evaluations</li>
+                                                <li>Exceed 4 iterations (diminishing returns)</li>
+                                                <li>Ignore cost accumulation</li>
+                                                <li>Use for private/confidential data</li>
+                                                <li>Rely solely on single search engine</li>
+                                                <li>Use for time-sensitive evaluations</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <h6 class="text-primary mb-2">Example Use Cases</h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="card h-100">
+                                                <div class="card-header">
+                                                    <i class="ph ph-newspaper me-2"></i>Current Events
+                                                </div>
+                                                <div class="card-body">
+                                                    <strong>Question:</strong> "Who won the 2024 Olympics gold in
+                                                    swimming?"<br>
+                                                    <strong>Why TALE:</strong> Information changes after training data
+                                                    cutoff
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card h-100">
+                                                <div class="card-header">
+                                                    <i class="ph ph-buildings me-2"></i>Company Information
+                                                </div>
+                                                <div class="card-body">
+                                                    <strong>Question:</strong> "What is Tesla's current stock
+                                                    price?"<br>
+                                                    <strong>Why TALE:</strong> Real-time financial data verification
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card h-100">
+                                                <div class="card-header">
+                                                    <i class="ph ph-globe me-2"></i>Geographic Facts
+                                                </div>
+                                                <div class="card-body">
+                                                    <strong>Question:</strong> "What is the current population of
+                                                    Tokyo?"<br>
+                                                    <strong>Why TALE:</strong> Statistical data that updates regularly
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Test Cases -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="testcasesHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#testcasesCollapse" aria-expanded="false" aria-controls="testcasesCollapse">
+                            <i class="ph ph-list-checks text-primary me-2"></i>
+                            <strong>Step 4: Create Test Cases</strong>
+                        </button>
+                    </h2>
+                    <div id="testcasesCollapse" class="accordion-collapse collapse" aria-labelledby="testcasesHeading"
+                        data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>Test cases are the input prompts and scenarios you want to test your models against.</p>
+
+                            <h6 class="text-primary mb-2">Components of a Test Case:</h6>
+                            <ul class="mb-3">
+                                <li><strong>Name & Description:</strong> Clear identification of what the test case
+                                    evaluates</li>
+                                <li><strong>Prompts:</strong> The actual inputs sent to your models</li>
+                                <li><strong>Expected Outputs (optional):</strong> Reference answers for comparison-based
+                                    metrics</li>
+                                <li><strong>Context (optional):</strong> Additional information for RAG or context-aware
+                                    evaluation</li>
+                            </ul>
+
+                            <h6 class="text-primary mb-2">Best Practices for Test Cases:</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0">✅ Do</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-0 small">
+                                                <li>Cover diverse scenarios and edge cases</li>
+                                                <li>Use realistic, domain-specific examples</li>
+                                                <li>Include both easy and challenging prompts</li>
+                                                <li>Test different prompt styles and lengths</li>
+                                                <li>Group related test cases for better organization</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-danger">
+                                        <div class="card-header bg-danger text-white">
+                                            <h6 class="mb-0">❌ Don't</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-0 small">
+                                                <li>Use the same Prompt in two different test cases</li>
+
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Benchmarks -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="benchmarksHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#benchmarksCollapse" aria-expanded="false"
+                            aria-controls="benchmarksCollapse">
+                            <i class="ph ph-cpu text-primary me-2"></i>
+                            <strong>Step 5: Create and Run Benchmarks</strong>
+                        </button>
+                    </h2>
+                    <div id="benchmarksCollapse" class="accordion-collapse collapse" aria-labelledby="benchmarksHeading"
+                        data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>Benchmarks combine your models, test cases, and metrics into a complete evaluation suite.
+                            </p>
+
+                            <h6 class="text-primary mb-2">Benchmark Configuration:</h6>
+                            <ul class="mb-3">
+                                <li><strong>Select Models:</strong> Choose which models to evaluate</li>
+                                <li><strong>Choose Test Cases:</strong> Pick relevant test cases for this benchmark</li>
+                                <li><strong>Apply Metrics:</strong> Select appropriate evaluation metrics</li>
+                                <li><strong>Set Parameters:</strong> Configure any additional settings</li>
+                            </ul>
+
+                            <h6 class="text-primary mb-2">Running Benchmarks:</h6>
+                            <ol class="mb-3">
+                                <li><strong>Start Execution:</strong> The platform will run all combinations</li>
+                                <li><strong>Monitor Progress:</strong> Track completion status in real-time</li>
+                                <li><strong>Wait for Completion:</strong> Larger benchmarks may take time</li>
+                                <li><strong>Review Results:</strong> Analyze scores and detailed feedback</li>
+                            </ol>
+
+                            <div class="alert alert-info">
+                                <i class="ph ph-clock me-2"></i>
+                                <strong>Performance Note:</strong> Benchmark runtime depends on the number of models ×
+                                test cases × metrics. Start with smaller benchmarks to test your setup.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Integrity: Deduplication -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="deduplicationHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#deduplicationCollapse" aria-expanded="false"
+                            aria-controls="deduplicationCollapse">
+                            <i class="ph ph-copy text-primary me-2"></i>
+                            <strong>Data Integrity: Handling Overlapping Benchmarks</strong>
+                        </button>
+                    </h2>
+                    <div id="deduplicationCollapse" class="accordion-collapse collapse"
+                        aria-labelledby="deduplicationHeading" data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>When multiple benchmarks test the same combination of <strong>Model + Prompt +
+                                    Metric</strong>,
+                                you may have duplicate results that can contaminate your analysis. Our deduplication
+                                system
+                                automatically handles these overlaps to ensure clean, reliable evaluation data.</p>
+
+                            <div class="alert alert-warning">
+                                <i class="ph ph-warning me-2"></i>
+                                <strong>The Problem:</strong> If Benchmark A tests "GPT-4 + Accuracy + Prompt1" and
+                                later
+                                Benchmark B tests the same combination, you'll have two results for identical
+                                conditions.
+                                This can skew analysis and create misleading comparisons.
+                            </div>
+
+                            <h5 class="text-primary mb-3">Deduplication Strategies</h5>
+
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <div class="card border-success h-100">
+                                        <div class="card-header bg-success text-white">
+                                            <i class="ph ph-clock-clockwise me-2"></i>
+                                            <strong>Latest (Recommended)</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="mb-2"><strong>How it works:</strong> Uses the result from the most
+                                                recent benchmark (highest benchmark ID).</p>
+                                            <p class="mb-2"><strong>When to use:</strong> Default choice for most
+                                                scenarios. Assumes newer benchmarks have improved configurations or
+                                                models.</p>
+                                            <div class="small text-muted">
+                                                <strong>Example:</strong> Benchmark A (ID: 1) and Benchmark B (ID: 3)
+                                                both test the same combination → Uses result from Benchmark B
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-info h-100">
+                                        <div class="card-header bg-info text-white">
+                                            <i class="ph ph-list me-2"></i>
+                                            <strong>All</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="mb-2"><strong>How it works:</strong> Includes all results without
+                                                any filtering.</p>
+                                            <p class="mb-2"><strong>When to use:</strong> When you want to see variance
+                                                between benchmark runs or analyze consistency across time.</p>
+                                            <div class="small text-muted">
+                                                <strong>Example:</strong> Shows both results from Benchmark A and B,
+                                                useful for spotting inconsistencies
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-warning h-100">
+                                        <div class="card-header bg-warning text-dark">
+                                            <i class="ph ph-equals me-2"></i>
+                                            <strong>Average</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="mb-2"><strong>How it works:</strong> Creates a virtual result with
+                                                the averaged score from all duplicates.</p>
+                                            <p class="mb-2"><strong>When to use:</strong> When you want to reduce
+                                                variance and get a more stable performance estimate.</p>
+                                            <div class="small text-muted">
+                                                <strong>Example:</strong> Benchmark A scores 0.8, Benchmark B scores 0.6
+                                                → Creates result with score 0.7
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-primary mb-2">How Deduplication Detection Works</h6>
+                            <p class="mb-3">The system identifies duplicates by grouping results with identical:</p>
+                            <ul class="mb-3">
+                                <li><strong>Prompt ID:</strong> Same input text being tested</li>
+                                <li><strong>Metric ID:</strong> Same evaluation criteria</li>
+                                <li><strong>Model ID:</strong> Same AI model being evaluated</li>
+                            </ul>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="card border-light">
+                                        <div class="card-header">
+                                            <i class="ph ph-check-circle text-success me-2"></i>
+                                            <strong>Automatic Application</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="small mb-2">Deduplication automatically applies when:</p>
+                                            <ul class="small mb-0">
+                                                <li>Analyzing results across multiple benchmarks</li>
+                                                <li>No specific benchmark is selected</li>
+                                                <li>Strategy is not set to "All"</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-light">
+                                        <div class="card-header">
+                                            <i class="ph ph-x-circle text-danger me-2"></i>
+                                            <strong>When Not Applied</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="small mb-2">Deduplication is skipped when:</p>
+                                            <ul class="small mb-0">
+                                                <li>Analyzing a specific single benchmark</li>
+                                                <li>Strategy is explicitly set to "All"</li>
+                                                <li>No duplicates exist in the dataset</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-primary mb-2">Real-World Scenarios</h6>
+
+                            <div class="card border-primary mb-3">
+                                <div class="card-header">
+                                    <i class="ph ph-calendar me-2"></i>
+                                    <strong>Scenario 1: Model Updates Over Time</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2">You ran Benchmark A in January testing GPT-4, then in March you run
+                                        Benchmark B testing the same prompts with updated GPT-4.</p>
+                                    <p class="mb-2"><strong>Problem:</strong> March results might be different due to
+                                        model improvements, but you have duplicate test conditions.</p>
+                                    <p class="mb-0"><strong>Solution:</strong> Use "Latest" strategy to automatically
+                                        prefer March results, ensuring your analysis reflects current model performance.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="card border-primary mb-3">
+                                <div class="card-header">
+                                    <i class="ph ph-test-tube me-2"></i>
+                                    <strong>Scenario 2: Experimental Benchmarks</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2">You create Benchmark A for initial testing, then Benchmark B with
+                                        refined metrics but some overlapping test cases.</p>
+                                    <p class="mb-2"><strong>Problem:</strong> Mixed results from different evaluation
+                                        approaches contaminate analysis.</p>
+                                    <p class="mb-0"><strong>Solution:</strong> Use "Latest" to prefer refined Benchmark
+                                        B results, or "Average" to smooth out evaluation differences.</p>
+                                </div>
+                            </div>
+
+                            <div class="card border-primary mb-3">
+                                <div class="card-header">
+                                    <i class="ph ph-chart-line me-2"></i>
+                                    <strong>Scenario 3: Consistency Analysis</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2">You want to check if your evaluation metrics produce consistent
+                                        results across multiple benchmark runs.</p>
+                                    <p class="mb-2"><strong>Problem:</strong> Need to see all results to identify
+                                        variance and inconsistencies.</p>
+                                    <p class="mb-0"><strong>Solution:</strong> Use "All" strategy to see every result
+                                        and identify evaluation stability issues.</p>
+                                </div>
+                            </div>
+
+                            <h6 class="text-primary mb-2">Best Practices</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0">✅ Recommended Approach</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-0 small">
+                                                <li><strong>Default to "Latest"</strong> for most analysis</li>
+                                                <li><strong>Use "All"</strong> when investigating inconsistencies</li>
+                                                <li><strong>Use "Average"</strong> for more stable trend analysis</li>
+                                                <li><strong>Document</strong> which strategy you used in reports</li>
+                                                <li><strong>Check metadata</strong> in results to see what was applied
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-warning">
+                                        <div class="card-header bg-warning text-dark">
+                                            <h6 class="mb-0">⚠️ Things to Consider</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-0 small">
+                                                <li><strong>Model versions:</strong> Ensure duplicate results are truly
+                                                    comparable</li>
+                                                <li><strong>Time sensitivity:</strong> Consider if older results are
+                                                    still relevant</li>
+                                                <li><strong>Evaluation changes:</strong> Be aware of metric refinements
+                                                    between benchmarks</li>
+                                                <li><strong>Data lineage:</strong> Track which benchmarks contributed to
+                                                    final results</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info mt-3">
+                                <i class="ph ph-info me-2"></i>
+                                <strong>Technical Note:</strong> Deduplication works at the analysis level and doesn't
+                                modify your stored benchmark results.
+                                Original data remains intact, and you can always switch strategies to see different
+                                views of the same data.
+                            </div>
+
+                            <div class="alert alert-success mt-3">
+                                <i class="ph ph-lightbulb me-2"></i>
+                                <strong>Pro Tip:</strong> Use the evaluation interface to experiment with different
+                                deduplication strategies.
+                                The analysis metadata will show you which strategy was applied and whether any
+                                duplicates were found.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 6: Evaluation -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="evaluationHeading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#evaluationCollapse" aria-expanded="false"
+                            aria-controls="evaluationCollapse">
+                            <i class="ph ph-chart-bar text-primary me-2"></i>
+                            <strong>Step 6: Analyze Results</strong>
+                        </button>
+                    </h2>
+                    <div id="evaluationCollapse" class="accordion-collapse collapse" aria-labelledby="evaluationHeading"
+                        data-bs-parent="#tutorialAccordion">
+                        <div class="accordion-body">
+                            <p>The evaluation page provides comprehensive analysis of your benchmark results.</p>
+
+                            <h6 class="text-primary mb-2">What You'll See:</h6>
+                            <ul class="mb-3">
+                                <li><strong>Overall Scores:</strong> Aggregate performance across all metrics</li>
+                                <li><strong>Model Comparisons:</strong> Side-by-side performance analysis</li>
+                                <li><strong>Metric Breakdown:</strong> Detailed scores for each evaluation criterion
+                                </li>
+                                <li><strong>Individual Results:</strong> Specific outputs and evaluation reasoning</li>
+                                <li><strong>Performance Insights:</strong> Strengths and weaknesses identification</li>
+                            </ul>
+
+                            <h6 class="text-primary mb-2">Interpreting Results:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card border-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <i class="ph ph-trend-up text-success me-1"></i>
+                                                High Scores (0.7-1.0)
+                                            </h6>
+                                            <p class="card-text small">Model performs well on this metric. Consider this
+                                                model for production or similar use cases.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <i class="ph ph-trend-down text-danger me-1"></i>
+                                                Low Scores (0.0-0.3)
+                                            </h6>
+                                            <p class="card-text small">Model struggles with this criterion. Consider
+                                                different models or additional training.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add to the workflow decision tree -->
+            <div class="card border-primary mt-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="ph ph-question me-2"></i>
+                    <strong>Which Metric Should I Use?</strong>
+                </div>
+                <div class="card-body">
+                    <div class="decision-tree">
+                        <div class="alert alert-light border">
+                            <strong>Start Here:</strong> What are you evaluating?
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white">Factual Accuracy</div>
+                                    <div class="card-body">
+                                        <p><strong>Need current/real-time info?</strong></p>
+                                        <p>✅ <strong>TALE</strong> - Web-verified facts</p>
+                                        <p><strong>Have reference answers?</strong></p>
+                                        <p>✅ <strong>G-Eval</strong> - Quick comparison</p>
+                                        <p><strong>Need complex verification logic?</strong></p>
+                                        <p>✅ <strong>DAG</strong> - Multi-step validation</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card border-success">
+                                    <div class="card-header bg-success text-white">Quality & Style</div>
+                                    <div class="card-body">
+                                        <p><strong>Subjective criteria?</strong></p>
+                                        <p>✅ <strong>G-Eval</strong> - Flexible assessment</p>
+                                        <p><strong>Multiple quality dimensions?</strong></p>
+                                        <p>✅ <strong>DAG</strong> - Structured evaluation</p>
+                                        <p><strong>Simple pass/fail?</strong></p>
+                                        <p>✅ <strong>G-Eval</strong> - Straightforward</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning text-dark">Complex Logic</div>
+                                    <div class="card-body">
+                                        <p><strong>Multi-step reasoning?</strong></p>
+                                        <p>✅ <strong>DAG</strong> - Decision trees</p>
+                                        <p><strong>Conditional evaluation?</strong></p>
+                                        <p>✅ <strong>DAG</strong> - If-then logic</p>
+                                        <p><strong>Need full transparency?</strong></p>
+                                        <p>✅ <strong>DAG</strong> - Explainable paths</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Best Practices Summary -->
+            <div class="card mt-4 border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="ph ph-star me-2"></i>
+                        Quick Start Best Practices
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Getting Started</h6>
+                            <ol class="small">
+                                <li>Start with 1-2 simple G-Eval metrics</li>
+                                <li>Create 5-10 diverse test cases</li>
+                                <li>Test with 2-3 models initially</li>
+                                <li>Run small benchmarks first</li>
+                                <li>Iterate based on results</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Advanced Tips</h6>
+                            <ul class="small">
+                                <li>Use steps-based G-Eval for consistency</li>
+                                <li>Combine multiple complementary metrics</li>
+                                <li>Test metrics with known good/bad examples</li>
+                                <li>Document your evaluation criteria clearly</li>
+                                <li>Regular benchmark updates as models improve</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="card mt-4">
+                <div class="card-body text-center">
+                    <h6 class="mb-3">Ready to get started?</h6>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <a href="/settings" class="btn btn-outline-primary">
+                            <i class="ph ph-gear me-1"></i>
+                            Configure Settings
+                        </a>
+                        <a href="/metrics" class="btn btn-outline-primary">
+                            <i class="ph ph-chart-line me-1"></i>
+                            Create Metrics
+                        </a>
+                        <a href="/testcases" class="btn btn-outline-primary">
+                            <i class="ph ph-list-checks me-1"></i>
+                            Add Test Cases
+                        </a>
+                        <a href="/benchmarks" class="btn btn-outline-primary">
+                            <i class="ph ph-cpu me-1"></i>
+                            Create Benchmark
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

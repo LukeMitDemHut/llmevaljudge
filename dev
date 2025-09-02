@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Primary entrypoint for interacting with the judge containers
+# Usage: ./dev <command> [args...]
+# Examples:
+#   ./dev symfony <args>   # runs Symfony CLI in the web container
+#   ./dev <other> <args>   # runs arbitrary command in the web container
+
+
+set -e
+
+CONTAINER=judge_web
+
+# If no arguments are provided, default to an interactive bash shell
+if [ -z "$1" ]; then
+    docker exec -it $CONTAINER /bin/bash
+    exit 0
+fi
+
+case "$1" in
+    up)
+        docker compose up -d
+        ;;
+    down)
+        docker compose down
+        ;;
+    restart)
+        docker compose down
+        docker compose pull
+        docker compose build
+        docker compose up -d
+        ;;
+    symfony)
+        shift
+        SYMFONY_PATH=$(docker exec $CONTAINER bash -c 'ls -d /root/.symfony*/bin/symfony 2>/dev/null | head -n1')
+        if [ -z "$SYMFONY_PATH" ]; then
+            echo "Symfony binary not found in container."
+            exit 1
+        fi
+        docker exec -it $CONTAINER "$SYMFONY_PATH" "$@"
+        ;;
+    console)
+        shift
+        docker exec -it $CONTAINER php bin/console "$@"
+        ;;
+    phpunit)
+        shift
+        docker exec -it $CONTAINER php bin/phpunit "$@"
+        ;;
+    test)
+        shift
+        ./dev phpunit "$@"
+        ;;
+    build)
+        docker exec -it $CONTAINER npm run build
+        ;;
+    dev)
+        docker exec -it $CONTAINER npm run dev-server
+        ;;
+    watch)
+        docker exec -it $CONTAINER npm run watch
+        ;;
+    install)
+        docker exec -it $CONTAINER composer install
+        docker exec -it $CONTAINER npm install
+        ;;
+    setup)
+        ./dev up
+        ./dev install
+        ./dev console doctrine:schema:update --force
+        ;;
+    *)
+        docker exec -it $CONTAINER "$@"
+        ;;
+esac

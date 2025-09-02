@@ -1,0 +1,7 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block body %}
+<div {{ vue_component('pages/' ~ component, _context) }}></div>
+{% endblock %}

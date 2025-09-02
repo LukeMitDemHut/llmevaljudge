@@ -1,0 +1,39 @@
+{
+    "devDependencies": {
+        "@babel/core": "^7.17.0",
+        "@babel/preset-env": "^7.16.0",
+        "@hotwired/stimulus": "^3.2.2",
+        "@symfony/stimulus-bridge": "^4.0.1",
+        "@symfony/ux-vue": "^2.29.1",
+        "@symfony/webpack-encore": "^5.0.0",
+        "bootstrap": "^5.3.7",
+        "core-js": "^3.38.0",
+        "regenerator-runtime": "^0.13.9",
+        "sass": "^1.89.2",
+        "sass-loader": "^16.0.5",
+        "vue": "^3.5.18",
+        "vue-loader": "^17.4.2",
+        "webpack": "^5.74.0",
+        "webpack-cli": "^5.1.0",
+        "webpack-dev-server": "^5.2.2"
+    },
+    "license": "UNLICENSED",
+    "private": true,
+    "scripts": {
+        "dev-server": "encore dev-server --hot",
+        "dev": "encore dev",
+        "watch": "encore dev --watch",
+        "build": "encore production --progress"
+    },
+    "dependencies": {
+        "@sgratzl/chartjs-chart-boxplot": "^4.4.4",
+        "chart.js": "^4.5.0",
+        "html2canvas": "^1.4.1",
+        "html2pdf.js": "^0.11.2",
+        "jspdf": "^3.0.1",
+        "leader-line": "^1.0.8",
+        "phosphor-icons": "^1.4.2",
+        "pinia": "^3.0.3",
+        "vuedraggable": "^4.1.0"
+    }
+}

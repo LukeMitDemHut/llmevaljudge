@@ -1,0 +1,138 @@
+name: LLM-Eval-Judge
+services:
+  judge_web:
+    container_name: judge_web
+    build: .
+    restart: always
+    ports:
+      - "${WEB_PORT}:80"
+      - "${DEV_SERVER_PORT:-8080}:8080"
+    volumes:
+      - ./site:/var/www/html:consistent
+      - ./logs:/var/log/apache2
+    healthcheck:
+      test: curl --fail -s http://localhost:80/ || exit 1
+      interval: 60s
+      timeout: 10s
+      retries: 2
+    env_file:
+      - .env
+    depends_on:
+      - judge_db
+    networks:
+      - judge_network
+
+  judge_db:
+    container_name: judge_db
+    image: mariadb:latest
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=app
+      - TZ=${TZ}
+    volumes:
+      - ./data:/var/lib/mysql
+    ports:
+      - "${DB_PORT}:3306"
+    networks:
+      - judge_network
+
+  judge_phpmyadmin:
+    container_name: judge_phpmyadmin
+    image: phpmyadmin
+    restart: always
+    depends_on:
+      - judge_db
+    ports:
+      - "${PHPMYADMIN_PORT}:80"
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=judge_db
+      - PMA_USER=root
+      - PMA_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    healthcheck:
+      test: curl --fail -s http://localhost:80/ || exit 1
+      interval: 60s
+      timeout: 10s
+      retries: 2
+    networks:
+      - judge_network
+
+  judge_messenger:
+    container_name: judge_messenger
+    build: .
+    restart: always
+    command:
+      [
+        "php",
+        "bin/console",
+        "messenger:consume",
+        "async",
+        "--memory-limit=128M",
+        "-vv",
+      ]
+    volumes:
+      - ./site:/var/www/html:consistent
+    env_file:
+      - .env
+    depends_on:
+      - judge_db
+      - judge_web
+    networks:
+      - judge_network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "ps",
+          "aux",
+          "|",
+          "grep",
+          "messenger:consume",
+          "|",
+          "grep",
+          "-v",
+          "grep",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  judge_eval:
+    build:
+      context: .
+      dockerfile: deepeval.dockerfile
+    working_dir: /app
+    restart: always
+    volumes:
+      - ./judge-eval:/app
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    networks:
+      - judge_network
+
+  judge_searxng:
+    container_name: judge_searxng
+    build:
+      context: .
+      dockerfile: searxng.dockerfile
+    restart: always
+    ports:
+      - "${SEARCH_PORT}:80"
+    environment:
+      - BASE_URL=http://localhost:${SEARCH_PORT}/
+      - RUNNING_USER=searx
+    networks:
+      - judge_network
+    volumes:
+      - ./searxng:/etc/searxng
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "-s", "http://localhost/nginx-health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+networks:
+  judge_network:

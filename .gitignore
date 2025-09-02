@@ -1,0 +1,7 @@
+/config
+/data
+.env
+.env.dev
+.env.test
+/logs
+.DS_Store

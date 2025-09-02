@@ -1,0 +1,111 @@
+<!-- Sidebar -->
+<div class="d-flex flex-column flex-shrink-0 bg-light border-end h-100 sidebar-container">
+    <!-- Toggle Button -->
+    <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+        <a href="/" class="d-flex align-items-center text-primary text-decoration-none sidebar-brand">
+            <span class="fs-4 sidebar-text">LLM Eval Judge</span>
+        </a>
+        <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse"
+            data-bs-target="#sidebarContent" aria-expanded="true" aria-controls="sidebarContent">
+            <i class="ph ph-list sidebar-toggle-icon"></i>
+        </button>
+    </div>
+
+    <!-- Collapsible Content -->
+    <div class="collapse show flex-grow-1 d-flex flex-column" id="sidebarContent">
+        <div class="p-3 flex-grow-1 d-flex flex-column">
+            <ul class="nav nav-pills flex-column mb-auto">
+                <li class="nav-item">
+                    <a href="/" class="nav-link text-dark">
+                        <i class="ph ph-book-open text-primary me-2"></i>
+                        <span class="sidebar-text">Manual</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/metrics" class="nav-link text-dark">
+                        <i class="ph ph-chart-line text-primary me-2"></i>
+                        <span class="sidebar-text">Metrics</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/testcases" class="nav-link text-dark">
+                        <i class="ph ph-list-checks text-primary me-2"></i>
+                        <span class="sidebar-text">Test Cases</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/benchmarks" class="nav-link text-dark">
+                        <i class="ph ph-cpu text-primary me-2"></i>
+                        <span class="sidebar-text">Benchmarks</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/evaluation" class="nav-link text-dark">
+                        <i class="ph ph-chart-bar text-primary me-2"></i>
+                        <span class="sidebar-text">Evaluation</span>
+                    </a>
+                </li>
+            </ul>
+            <hr class="text-muted">
+            <ul class="nav nav-pills flex-column">
+                <li class="nav-item">
+                    <a href="/settings" class="nav-link text-dark">
+                        <i class="ph ph-gear text-primary me-2"></i>
+                        <span class="sidebar-text">Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    .sidebar-container {
+        width: 280px;
+        transition: width 0.3s ease;
+    }
+
+    .sidebar-container.collapsed {
+        width: 70px;
+    }
+
+    .sidebar-container.collapsed .sidebar-text {
+        display: none !important;
+    }
+
+    .sidebar-container.collapsed .sidebar-brand {
+        display: none !important;
+    }
+
+    .sidebar-container.collapsed .nav-link {
+        justify-content: center;
+        padding: 0.5rem;
+    }
+
+    .sidebar-container.collapsed .nav-link i {
+        margin-right: 0 !important;
+    }
+
+    .sidebar-toggle-icon {
+        transition: transform 0.3s ease;
+    }
+
+    .sidebar-container.collapsed .sidebar-toggle-icon {
+        transform: rotate(180deg);
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const toggleBtn = document.querySelector('[data-bs-target="#sidebarContent"]');
+        const sidebar = document.querySelector('.sidebar-container');
+
+        if (toggleBtn && sidebar) {
+            toggleBtn.addEventListener('click', function () {
+                setTimeout(() => {
+                    sidebar.classList.toggle('collapsed');
+                }, 150);
+            });
+        }
+    });
+</script>
