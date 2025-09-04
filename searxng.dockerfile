@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     python3-dev python3-babel python3-venv python-is-python3 \
     uwsgi uwsgi-plugin-python3 \
     git build-essential libxslt-dev zlib1g-dev libffi-dev libssl-dev \
+    libxml2-dev libxslt1-dev python3-lxml \
     nginx curl bash \
     && rm -rf /var/lib/apt/lists/*
 
@@ -35,6 +36,7 @@ RUN python3 -m venv "/usr/local/searxng/searx-pyenv" && \
 # Install SearXNG dependencies
 RUN . /usr/local/searxng/searx-pyenv/bin/activate && \
     pip install -U pip setuptools wheel pyyaml && \
+    pip install lxml && \
     cd "/usr/local/searxng/searxng-src" && \
     pip install --use-pep517 --no-build-isolation -e .
 
