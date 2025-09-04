@@ -73,7 +73,7 @@
                 <!-- Results Display -->
                 <div
                     v-if="evaluationData && !resultsStore.loading"
-                    id="printable"
+                    id="printable-testcase"
                 >
                     <hr />
                     <div

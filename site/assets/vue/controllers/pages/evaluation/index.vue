@@ -73,6 +73,7 @@
                             icon: 'chart-line-up',
                         },
                     ]"
+                    :activeTab="activeTab"
                     @update:activeTab="handleTabChange"
                 >
                     <template v-slot:model-pane> <Model /> </template>
@@ -159,9 +160,9 @@ export default {
         }
     },
     methods: {
-        handleTabChange(tab) {
+        handleTabChange(tabId) {
             this.resultsStore.evaluationData = undefined;
-            this.activeTab = tab.id;
+            this.activeTab = tabId;
         },
         handleDeduplicationChange() {
             // Clear current evaluation data to force re-fetch with new strategy
@@ -177,123 +178,28 @@ export default {
             return tooltips[this.resultsStore.deduplicationStrategy] || "";
         },
         getFilename() {
-            if (!this.resultsStore.evaluationData) {
-                const now = new Date();
-                const timestamp =
-                    now.toISOString().slice(0, 10).replace(/-/g, "") +
-                    "-" +
-                    now.toTimeString().slice(0, 5).replace(":", "");
-                return `${timestamp} ${this.activeTab}_evaluation.pdf`;
-            }
-
-            const data = this.resultsStore.evaluationData;
             const now = new Date();
             const timestamp =
                 now.toISOString().slice(0, 10).replace(/-/g, "") +
-                "-" +
-                now.toTimeString().slice(0, 5).replace(":", "");
-
-            // Helper function to sanitize names for filename
-            const sanitize = (name) =>
-                name
-                    ?.replace(/[^a-zA-Z0-9-]/g, "-")
-                    .replace(/-+/g, "-")
-                    .replace(/^-|-$/g, "") || "unknown";
-
-            // Helper function to join names with dashes
-            const joinNames = (items, key = "name") => {
-                if (!items || items.length === 0) return "none";
-                return items.map((item) => sanitize(item[key])).join("-");
-            };
-
-            switch (this.activeTab) {
-                case "model":
-                    const modelName = sanitize(data.model?.name);
-                    const metricNames = joinNames(data.metrics);
-                    const testCaseNames = joinNames(
-                        this.getSelectedTestCases()
-                    );
-                    return `${timestamp} ${modelName}   metrics ${metricNames}   testCases ${testCaseNames}.pdf`;
-
-                case "metric":
-                    const metricName = sanitize(data.metric?.name);
-                    const modelNames = joinNames(data.models);
-                    const testCases = joinNames(this.getSelectedTestCases());
-                    return `${timestamp} ${metricName}   models ${modelNames}   testCases ${testCases}.pdf`;
-
-                case "testcase":
-                    const testCaseName = sanitize(data.testCase?.name);
-                    const models = joinNames(this.getSelectedModels());
-                    const metrics = joinNames(this.getSelectedMetrics());
-                    return `${timestamp} ${testCaseName}   models ${models}   metrics ${metrics}.pdf`;
-
-                case "benchmark":
-                    const benchmarkName = sanitize(data.benchmark?.name);
-                    const benchmarkModels = joinNames(this.getSelectedModels());
-                    return `${timestamp} ${benchmarkName}   models ${benchmarkModels}.pdf`;
-
-                default:
-                    return `${timestamp} ${this.activeTab}_evaluation.pdf`;
-            }
-        },
-
-        getSelectedModels() {
-            // Get the currently selected models from the active tab component
-            const tabComponents = this.$refs;
-            if (
-                this.activeTab === "model" &&
-                this.resultsStore.evaluationData?.model
-            ) {
-                return [this.resultsStore.evaluationData.model];
-            } else if (this.resultsStore.evaluationData?.models) {
-                return this.resultsStore.evaluationData.models;
-            }
-            return [];
-        },
-
-        getSelectedBenchmarks() {
-            // Get the currently selected benchmark from the evaluation data
-            if (
-                this.activeTab === "benchmark" &&
-                this.resultsStore.evaluationData?.benchmark
-            ) {
-                return [this.resultsStore.evaluationData.benchmark];
-            }
-            return [];
-        },
-
-        getSelectedMetrics() {
-            // Get the currently selected metrics from the active tab component
-            if (
-                this.activeTab === "metric" &&
-                this.resultsStore.evaluationData?.metric
-            ) {
-                return [this.resultsStore.evaluationData.metric];
-            } else if (this.resultsStore.evaluationData?.metrics) {
-                return this.resultsStore.evaluationData.metrics;
-            }
-            return [];
-        },
-
-        getSelectedTestCases() {
-            // Get the currently selected test cases from the evaluation data
-            if (
-                this.activeTab === "testcase" &&
-                this.resultsStore.evaluationData?.testCase
-            ) {
-                return [this.resultsStore.evaluationData.testCase];
-            }
-            // For model and metric tabs, we need to infer from the overall test count
-            // Since the API doesn't return the specific test cases used, we'll use a placeholder
-            const totalTests =
-                this.resultsStore.evaluationData?.overall?.totalTests;
-            if (totalTests) {
-                return [{ name: `${totalTests}-tests` }];
-            }
-            return [];
+                "_" +
+                now.toTimeString().slice(0, 8).replace(/:/g, "");
+            return `${timestamp}_LLMevalJudge.pdf`;
         },
         printResults() {
-            const element = document.getElementById("printable");
+            if (!this.activeTab) {
+                this.activeTab = "model";
+            }
+
+            const printableId = `printable-${this.activeTab}`;
+            const element = document.getElementById(printableId);
+
+            if (!element) {
+                console.error(
+                    `Printable element with id "${printableId}" not found`
+                );
+                return;
+            }
+
             const options = {
                 margin: 0.5,
                 filename: this.getFilename(),

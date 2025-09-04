@@ -62,7 +62,7 @@
                 <!-- Results Display -->
                 <div
                     v-if="evaluationData && !resultsStore.loading"
-                    id="printable"
+                    id="printable-benchmark"
                 >
                     <hr />
                     <div
