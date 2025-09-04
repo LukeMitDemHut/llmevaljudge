@@ -59,9 +59,10 @@ services:
       - judge_network
 
   judge_messenger:
-    container_name: judge_messenger
     build: .
     restart: always
+    deploy:
+      replicas: 4 # Run 4 worker instances
     command:
       [
         "php",

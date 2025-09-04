@@ -10,6 +10,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
+use App\Message\EvaluatePrompt;
 use App\Enum\MetricParam;
 
 use function PHPUnit\Framework\throwException;
@@ -24,6 +26,7 @@ final class RunBenchmarkHandler
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
         private SettingRepository $settingRepository,
+        private MessageBusInterface $messageBus,
     ) {}
 
     public function __invoke(RunBenchmark $message): void
@@ -143,183 +146,24 @@ final class RunBenchmarkHandler
         }
 
         $totalRequests = count($requests);
-        // Dispatch all collected requests
-        foreach ($requests as $index => $request) {
-            $this->evaluatePrompt($request['prompt'], $request['metric'], $request['model']);
 
-            // update benchmark progress
-            $benchmark->setProgress(($index + 1) / $totalRequests * 100);
-            $this->entityManager->flush();
+        // Dispatch all collected requests for parallel processing
+        foreach ($requests as $request) {
+            $evaluateMessage = new EvaluatePrompt(
+                $request['prompt']->getId(),
+                $request['metric']->getId(),
+                $request['model']->getId(),
+                $benchmark->getId()
+            );
+            $this->messageBus->dispatch($evaluateMessage);
         }
 
-        // Only mark benchmark as finished if this was a full run, not missing-only
-        if (!$message->onlyMissing) {
-            $benchmark->setFinishedAt(new \DateTimeImmutable());
-        }
-
-        $benchmark->setProgress(100); // Ensure progress is 100% when finished
         $this->entityManager->flush();
 
-        $this->logger->info('Benchmark execution completed', [
+        $this->logger->info('Benchmark execution initiated', [
             'benchmarkId' => $benchmark->getId(),
             'onlyMissing' => $message->onlyMissing,
-            'requestsProcessed' => $totalRequests
+            'requestsDispatched' => $totalRequests
         ]);
-    }
-
-    private function evaluatePrompt($prompt, $metric, $model): void
-    {
-        $maxRetries = 2;
-        $attempt = 0;
-        $lastException = null;
-
-        while ($attempt < $maxRetries) {
-            $attempt++;
-
-            try {
-                // Check if a result already exists for this prompt/metric/model/benchmark combination
-                // This prevents duplicate results and ensures data consistency when benchmarks are re-run
-                $existingResult = $this->entityManager->getRepository(Result::class)
-                    ->findByPromptMetricModelBenchmark($prompt, $metric, $model, $this->currentBenchmark);
-
-                // Prepare data for Python evaluation service
-                $evaluationData = [
-                    'prompt' => [
-                        'input' => $prompt->getInput(),
-                        'output' => '', // Will be filled by the model
-                        'expected_output' => $prompt->getExpectedOutput() ?? '',
-                        'context' => $prompt->getContext() ?? ''
-                    ],
-                    'model' => [
-                        'name' => $model->getName(),
-                        'url' => $model->getProvider()->getApiUrl(),
-                        'key' => $model->getProvider()->getApiKey()
-                    ],
-                    'metric' => [
-                        'name' => $metric->getName(),
-                        'type' => $metric->getType()->value,
-                        'definition' => json_encode($metric->getDefinition()),
-                        'param' => $metric->getParam(),
-                        'model' => [
-                            'name' => $metric->getRatingModel()->getName(),
-                            'url' => $metric->getRatingModel()->getProvider()->getApiUrl(),
-                            'key' => $metric->getRatingModel()->getProvider()->getApiKey()
-                        ]
-                    ],
-                    'system_prompt' => $this->getSystemPrompt($prompt)
-                ];
-
-                // Call Python evaluation service
-                $response = $this->httpClient->request('POST', 'http://judge_eval:5000/', [
-                    'json' => $evaluationData,
-                    'timeout' => 120 // 2 minutes timeout for evaluation
-                ]);
-
-                $result = $response->toArray();
-
-                // Use existing result if found, otherwise create new one
-                // This ensures we update existing results instead of creating duplicates
-                $resultEntity = $existingResult ?? new Result();
-                $resultEntity->setPrompt($prompt);
-                $resultEntity->setMetric($metric);
-                $resultEntity->setModel($model);
-                $resultEntity->setBenchmark($this->currentBenchmark);
-                $resultEntity->setActualOutput($result['actual_output'] ?? '');
-                $resultEntity->setScore($result['score'] ?? 0.0);
-                $resultEntity->setReason($result['reason'] ?? '');
-                $resultEntity->setLogs($result['logs'] ?? '');
-
-                // Only persist if it's a new entity (existing entities are automatically tracked)
-                if (!$existingResult) {
-                    $this->entityManager->persist($resultEntity);
-                }
-                $this->entityManager->flush();
-
-                $action = $existingResult ? 'updated' : 'created';
-                $this->logger->info("Evaluation $action", [
-                    'promptId' => $prompt->getId(),
-                    'metricId' => $metric->getId(),
-                    'modelId' => $model->getId(),
-                    'score' => $result['score'] ?? 0.0,
-                    'action' => $action,
-                    'attempt' => $attempt
-                ]);
-
-                // Success - exit retry loop
-                return;
-            } catch (\Exception $e) {
-                $lastException = $e;
-                $this->logger->warning("Evaluation attempt failed", [
-                    'promptId' => $prompt->getId(),
-                    'metricId' => $metric->getId(),
-                    'modelId' => $model->getId(),
-                    'attempt' => $attempt,
-                    'maxRetries' => $maxRetries,
-                    'error' => $e->getMessage()
-                ]);
-
-                // If this was the last attempt, handle failure
-                if ($attempt >= $maxRetries) {
-                    break;
-                }
-
-                // Brief delay before retry to avoid overwhelming the service
-                usleep(500000); // 0.5 seconds
-            }
-        }
-
-        // All retries failed - handle failure case
-        $errorMessage = sprintf(
-            'Evaluation failed for prompt %d, metric %d, model %d after %d attempts: %s',
-            $prompt->getId(),
-            $metric->getId(),
-            $model->getId(),
-            $maxRetries,
-            $lastException ? $lastException->getMessage() : 'Unknown error'
-        );
-
-        $this->logger->error('Evaluation failed after all retries', [
-            'promptId' => $prompt->getId(),
-            'metricId' => $metric->getId(),
-            'modelId' => $model->getId(),
-            'totalAttempts' => $maxRetries,
-            'error' => $lastException ? $lastException->getMessage() : 'Unknown error'
-        ]);
-
-        // Add error to benchmark
-        if ($this->currentBenchmark) {
-            $this->currentBenchmark->addError($errorMessage);
-            $this->entityManager->flush();
-        }
-
-        // Check for existing result and remove it if it exists for this benchmark
-        $existingResult = $this->entityManager->getRepository(Result::class)
-            ->findByPromptMetricModelBenchmark($prompt, $metric, $model, $this->currentBenchmark);
-
-        if ($existingResult) {
-            $this->entityManager->remove($existingResult);
-            $this->entityManager->flush();
-            $this->logger->info('Removed existing result due to evaluation failure', [
-                'promptId' => $prompt->getId(),
-                'metricId' => $metric->getId(),
-                'modelId' => $model->getId()
-            ]);
-        }
-    }
-
-    /**
-     * Get the system prompt from settings and replace {context} placeholder
-     */
-    private function getSystemPrompt($prompt): string
-    {
-        $systemPromptTemplate = $this->settingRepository->getSettingValue('system_prompt', '');
-
-        if (empty($systemPromptTemplate)) {
-            return '';
-        }
-
-        // Replace {context} placeholder with the actual prompt context
-        $context = $prompt->getContext() ?? '';
-        return str_replace('{context}', $context, $systemPromptTemplate);
     }
 }
