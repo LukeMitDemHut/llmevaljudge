@@ -73,6 +73,9 @@ final class RunBenchmarkHandler
                                 case MetricParam::CONTEXT:
                                     $satisfied = !empty($prompt->getContext());
                                     break;
+                                case MetricParam::ACTUAL_OUTPUT:
+                                    $satisfied = true; // actual output can be generated during execution
+                                    break;
 
                                 default:
                                     throwException(new \InvalidArgumentException('Unknown metric parameter'));
@@ -80,16 +83,14 @@ final class RunBenchmarkHandler
                             }
 
                             if (!$satisfied) {
-                                if (!$message->onlyMissing) {
-                                    $this->logger->warning('Benchmark parameter not satisfied', [
-                                        'benchmarkId' => $benchmark->getId(),
-                                        'testCaseId' => $testCase->getId(),
-                                        'promptId' => $prompt->getId(),
-                                        'metricId' => $metric->getId(),
-                                        'missingParam' => $param->value
-                                    ]);
-                                    $benchmark->addError('Test skipped due to benchmark parameter not satisfied: ' . $param->value . ' for prompt ' . $prompt->getId());
-                                }
+                                $this->logger->warning('Benchmark parameter not satisfied', [
+                                    'benchmarkId' => $benchmark->getId(),
+                                    'testCaseId' => $testCase->getId(),
+                                    'promptId' => $prompt->getId(),
+                                    'metricId' => $metric->getId(),
+                                    'missingParam' => $param->value
+                                ]);
+                                $benchmark->addError('Test skipped due to benchmark parameter not satisfied: ' . $param->value . ' for prompt ' . $prompt->getId());
 
                                 continue 3; // Skip to next prompt if any param is not satisfied
                             }
