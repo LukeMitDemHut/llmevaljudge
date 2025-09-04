@@ -31,7 +31,7 @@
                         </DropdownItem>
                         <DropdownItem
                             v-if="canRerunMissing(benchmark)"
-                            icon="refresh"
+                            icon="circle-dashed"
                             @click="$emit('start-missing', benchmark)"
                         >
                             Rerun Failed/Missing

@@ -52,6 +52,8 @@ final class RunBenchmarkHandler
             $benchmark->clearErrors();
             // Reset progress to 0 when starting full run
             $benchmark->setProgress(0);
+            $benchmark->setFinishedAt(null);
+            $this->entityManager->persist($benchmark);
             $this->entityManager->flush();
         }
 
