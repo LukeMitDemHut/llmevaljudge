@@ -8,6 +8,7 @@
                 required
                 :multiline="true"
                 :rows="4"
+                :isTextarea="true"
             />
             <InputText
                 v-model="prompt.expectedOutput"
@@ -15,6 +16,7 @@
                 placeholder="Enter the expected output (optional)"
                 :multiline="true"
                 :rows="4"
+                :isTextarea="true"
             />
             <InputText
                 v-model="prompt.context"
@@ -22,6 +24,7 @@
                 placeholder="Enter additional context if needed"
                 :multiline="true"
                 :rows="3"
+                :isTextarea="true"
             />
         </InputGroup>
     </form>

@@ -17,7 +17,13 @@
                     </h5>
                     <Dropdown>
                         <DropdownItem
-                            icon="files"
+                            icon="pencil"
+                            @click="$emit('edit', metric)"
+                        >
+                            Edit
+                        </DropdownItem>
+                        <DropdownItem
+                            icon="copy"
                             @click="$emit('duplicate', metric)"
                         >
                             Duplicate
@@ -135,6 +141,7 @@ export default {
         DropdownItem,
         Icon,
     },
+    emits: ["delete", "edit", "duplicate", "select"],
     computed: {
         metricsStore() {
             return useMetricsStore();

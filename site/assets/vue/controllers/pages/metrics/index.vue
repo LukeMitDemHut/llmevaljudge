@@ -25,6 +25,7 @@
                             @delete="prepareDeleteMetric"
                             @select="showMetricDetails"
                             @duplicate="duplicateMetric"
+                            @edit="editMetric"
                         />
                     </div>
                 </Card>
@@ -48,10 +49,10 @@
         :confirmationPlaceholder="currentMetric.name"
     />
     <Modal
-        v-if="showNewMetricModal"
+        v-if="editMetricModal"
         :visible="true"
-        title="Create a New Metric"
-        @close="closeNewMetricModal"
+        :title="currentMetric?.id ? 'Edit Metric' : 'Create a New Metric'"
+        @close="closeEditMetricModal"
     >
         <EditMetricModal
             ref="editMetricModal"
@@ -83,7 +84,7 @@
             <button
                 type="button"
                 class="btn btn-secondary"
-                @click="closeNewMetricModal"
+                @click="closeEditMetricModal"
                 :disabled="saving"
             >
                 Cancel
@@ -99,7 +100,15 @@
                     class="spinner-border spinner-border-sm me-2"
                     role="status"
                 ></span>
-                {{ saving ? "Creating..." : "Create" }}
+                {{
+                    saving
+                        ? currentMetric?.id
+                            ? "Updating..."
+                            : "Creating..."
+                        : currentMetric?.id
+                        ? "Update"
+                        : "Create"
+                }}
             </button>
         </template>
     </Modal>
@@ -157,7 +166,7 @@ export default {
         return {
             currentMetric: null,
             showConfirmationModal: false,
-            showNewMetricModal: false,
+            editMetricModal: false,
             showDetailsMetricModal: false,
             saving: false,
         };
@@ -183,7 +192,14 @@ export default {
                 name: metric.name + " (Copy)", // Append "(Copy)" to name
                 ratingModelId: metric.ratingModel?.id || null, // Extract ID from nested object if it exists
             };
-            this.showNewMetricModal = true;
+            this.editMetricModal = true;
+        },
+        editMetric(metric) {
+            this.currentMetric = {
+                ...metric,
+                ratingModelId: metric.ratingModel?.id || null, // Extract ID from nested object if it exists
+            };
+            this.editMetricModal = true;
         },
         addMetric() {
             this.currentMetric = {
@@ -200,7 +216,7 @@ export default {
                 param: [],
                 threshold: null,
             };
-            this.showNewMetricModal = true;
+            this.editMetricModal = true;
         },
         async saveMetric() {
             try {
@@ -231,22 +247,31 @@ export default {
                     return;
                 }
 
-                // Create the metric via the store
-                await this.metricsStore.createMetric(metricData);
+                // Check if we're editing (has ID) or creating (no ID)
+                if (this.currentMetric.id) {
+                    // Update existing metric
+                    await this.metricsStore.updateMetric(
+                        this.currentMetric.id,
+                        metricData
+                    );
+                } else {
+                    // Create new metric
+                    await this.metricsStore.createMetric(metricData);
+                }
 
                 // Close modal and reset
-                this.showNewMetricModal = false;
+                this.editMetricModal = false;
                 this.currentMetric = null;
             } catch (error) {
                 // Error handling is done in the store, but we can add user feedback here
-                console.error("Failed to create metric:", error);
+                console.error("Failed to save metric:", error);
                 // The store will handle validation errors and update its error state
             } finally {
                 this.saving = false;
             }
         },
-        closeNewMetricModal() {
-            this.showNewMetricModal = false;
+        closeEditMetricModal() {
+            this.editMetricModal = false;
             this.currentMetric = null;
             this.metricsStore.clearErrors();
 
