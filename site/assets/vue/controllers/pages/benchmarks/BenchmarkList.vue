@@ -144,11 +144,23 @@
                                         getBenchmarkStatus(benchmark) ===
                                         'running'
                                     "
-                                    class="d-flex justify-content-between"
+                                    class="d-flex justify-content-between mb-1"
                                 >
                                     <span>Duration:</span>
                                     <span class="fw-bold">{{
                                         getRunningDuration(benchmark)
+                                    }}</span>
+                                </div>
+                                <div
+                                    v-if="
+                                        getBenchmarkStatus(benchmark) ===
+                                            'running' && getETA(benchmark)
+                                    "
+                                    class="d-flex justify-content-between"
+                                >
+                                    <span>ETA:</span>
+                                    <span class="fw-bold">{{
+                                        getETA(benchmark)
                                     }}</span>
                                 </div>
                             </div>
@@ -311,6 +323,43 @@ export default {
 
         hasErrors(benchmark) {
             return benchmark.errors && benchmark.errors.length > 0;
+        },
+
+        getETA(benchmark) {
+            if (
+                !benchmark.startedAt ||
+                !benchmark.progress ||
+                benchmark.progress <= 0
+            ) {
+                return null;
+            }
+
+            const start = new Date(benchmark.startedAt);
+            const now = new Date();
+            const elapsedMs = now - start;
+
+            // Calculate estimated total time based on current progress
+            const estimatedTotalMs = (elapsedMs / benchmark.progress) * 100;
+            const remainingMs = estimatedTotalMs - elapsedMs;
+
+            if (remainingMs <= 0) {
+                return null;
+            }
+
+            // Calculate ETA datetime
+            const eta = new Date(now.getTime() + remainingMs);
+            const etaFormatted =
+                eta.toLocaleDateString() +
+                " " +
+                eta.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+
+            // Calculate remaining minutes
+            const remainingMinutes = Math.ceil(remainingMs / (1000 * 60));
+
+            return `${etaFormatted} (${remainingMinutes}min left)`;
         },
     },
 };
