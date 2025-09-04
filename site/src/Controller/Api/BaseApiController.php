@@ -2,7 +2,9 @@
 
 namespace App\Controller\Api;
 
+use App\Utils\PaginationHelper;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -94,5 +96,22 @@ abstract class BaseApiController extends AbstractController
     {
         $this->entityManager->persist($entity);
         $this->entityManager->flush();
+    }
+
+    protected function paginatedResponse(QueryBuilder $queryBuilder, Request $request, array $groups = ['api']): JsonResponse
+    {
+        if (PaginationHelper::shouldPaginate($request)) {
+            $result = PaginationHelper::paginate($queryBuilder, $request);
+            $normalizedData = $this->normalizer->normalize($result['data'], null, ['groups' => $groups]);
+
+            return new JsonResponse([
+                'data' => $normalizedData,
+                'pagination' => $result['pagination']
+            ]);
+        } else {
+            // Fallback to non-paginated response
+            $data = $queryBuilder->getQuery()->getResult();
+            return $this->jsonResponse($data, Response::HTTP_OK, $groups);
+        }
     }
 }

@@ -19,6 +19,7 @@ export const useResultsStore = defineStore("results", {
         loading: false,
         saving: false,
         errors: {},
+        loadingProgress: null, // For tracking pagination progress
     }),
 
     getters: {
@@ -110,9 +111,15 @@ export const useResultsStore = defineStore("results", {
         async loadResults(filters = {}) {
             this.loading = true;
             this.errors = {};
+            this.loadingProgress = null;
 
             try {
-                const results = await api.results.getAll(filters);
+                const results = await api.results.getAll({
+                    ...filters,
+                    onProgress: (progress) => {
+                        this.loadingProgress = progress;
+                    },
+                });
                 this.results = results;
                 return results;
             } catch (error) {
@@ -120,12 +127,14 @@ export const useResultsStore = defineStore("results", {
                 throw error;
             } finally {
                 this.loading = false;
+                this.loadingProgress = null;
             }
         },
 
         async loadResultsByPrompt(promptId) {
             this.loading = true;
             this.errors = {};
+            this.loadingProgress = null;
 
             try {
                 const results = await api.results.getByPrompt(promptId);
@@ -141,12 +150,14 @@ export const useResultsStore = defineStore("results", {
                 throw error;
             } finally {
                 this.loading = false;
+                this.loadingProgress = null;
             }
         },
 
         async loadResultsByMetric(metricId) {
             this.loading = true;
             this.errors = {};
+            this.loadingProgress = null;
 
             try {
                 const results = await api.results.getByMetric(metricId);
@@ -162,12 +173,14 @@ export const useResultsStore = defineStore("results", {
                 throw error;
             } finally {
                 this.loading = false;
+                this.loadingProgress = null;
             }
         },
 
         async loadResultsByModel(modelId) {
             this.loading = true;
             this.errors = {};
+            this.loadingProgress = null;
 
             try {
                 const results = await api.results.getByModel(modelId);
@@ -183,6 +196,7 @@ export const useResultsStore = defineStore("results", {
                 throw error;
             } finally {
                 this.loading = false;
+                this.loadingProgress = null;
             }
         },
 

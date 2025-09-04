@@ -1,6 +1,8 @@
 class ApiService {
     constructor(baseURL = "") {
         this.baseURL = baseURL;
+        this.defaultPageSize = 50;
+        this.maxPageSize = 200;
     }
 
     async request(url, options = {}) {
@@ -54,9 +56,103 @@ class ApiService {
         }
     }
 
+    // Enhanced method to handle paginated requests
+    async getAllPaginated(resource, options = {}) {
+        const {
+            filters = {},
+            pageSize = this.defaultPageSize,
+            maxResults = null,
+            onProgress = null,
+        } = options;
+
+        let allData = [];
+        let page = 1;
+        let hasMore = true;
+        let totalFetched = 0;
+
+        while (hasMore) {
+            const params = new URLSearchParams({
+                ...filters,
+                page: page.toString(),
+                pageSize: Math.min(pageSize, this.maxPageSize).toString(),
+                paginate: "true",
+            });
+
+            const url = `/api/${resource}?${params.toString()}`;
+            const response = await this.request(url);
+
+            // Handle both paginated and non-paginated responses
+            if (response && response.pagination) {
+                // Paginated response
+                allData = allData.concat(response.data || []);
+                hasMore = response.pagination.hasNext;
+                totalFetched += (response.data || []).length;
+
+                if (onProgress) {
+                    onProgress({
+                        currentPage: page,
+                        totalPages: response.pagination.totalPages,
+                        totalItems: response.pagination.totalItems,
+                        fetchedItems: totalFetched,
+                    });
+                }
+            } else {
+                // Non-paginated response (fallback)
+                allData = response || [];
+                hasMore = false;
+                totalFetched = allData.length;
+            }
+
+            // Stop if we've reached the maximum requested results
+            if (maxResults && totalFetched >= maxResults) {
+                allData = allData.slice(0, maxResults);
+                break;
+            }
+
+            page++;
+
+            // Safety break to prevent infinite loops
+            if (page > 1000) {
+                console.warn(
+                    `Pagination safety break triggered for ${resource}`
+                );
+                break;
+            }
+        }
+
+        return allData;
+    }
+
     // Generic CRUD operations
-    async getAll(resource) {
-        return this.request(`/api/${resource}`);
+    async getAll(resource, params = {}) {
+        // Check if this should use pagination
+        const shouldPaginate =
+            params.paginate !== false &&
+            (params.pageSize ||
+                params.maxResults ||
+                this.shouldUsePagination(resource));
+
+        if (shouldPaginate) {
+            return this.getAllPaginated(resource, {
+                filters: params,
+                pageSize: params.pageSize,
+                maxResults: params.maxResults,
+                onProgress: params.onProgress,
+            });
+        }
+
+        // Use the original single request method
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(
+            `/api/${resource}${queryString ? `?${queryString}` : ""}`
+        );
+    }
+
+    // Determine if a resource should use pagination by default
+    shouldUsePagination(resource) {
+        // These resources are likely to have large datasets
+        const largDatasetResources = ["results", "prompts", "metrics"];
+        return largDatasetResources.includes(resource);
     }
 
     async getById(resource, id) {
@@ -85,7 +181,7 @@ class ApiService {
 
     // Specific resource methods (can be extended)
     providers = {
-        getAll: () => this.getAll("providers"),
+        getAll: (params = {}) => this.getAll("providers", params),
         getById: (id) => this.getById("providers", id),
         create: (data) => this.create("providers", data),
         update: (id, data) => this.update("providers", id, data),
@@ -93,7 +189,7 @@ class ApiService {
     };
 
     models = {
-        getAll: () => this.getAll("models"),
+        getAll: (params = {}) => this.getAll("models", params),
         getById: (id) => this.getById("models", id),
         create: (data) => this.create("models", data),
         update: (id, data) => this.update("models", id, data),
@@ -101,27 +197,18 @@ class ApiService {
     };
 
     metrics = {
-        getAll: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/metrics${queryString ? `?${queryString}` : ""}`
-            );
-        },
+        getAll: (params = {}) => this.getAll("metrics", params),
         getById: (id) => this.getById("metrics", id),
         create: (data) => this.create("metrics", data),
         update: (id, data) => this.update("metrics", id, data),
         delete: (id) => this.delete("metrics", id),
         getTypes: () => this.request("/api/metrics/types"),
         search: (query, limit = 50) =>
-            this.request(
-                `/api/metrics?search=${encodeURIComponent(
-                    query
-                )}&limit=${limit}`
-            ),
+            this.getAll("metrics", { search: query, limit, paginate: false }),
     };
 
     benchmarks = {
-        getAll: () => this.getAll("benchmarks"),
+        getAll: (params = {}) => this.getAll("benchmarks", params),
         getById: (id) => this.getById("benchmarks", id),
         create: (data) => this.create("benchmarks", data),
         update: (id, data) => this.update("benchmarks", id, data),
@@ -135,7 +222,7 @@ class ApiService {
     };
 
     testCases = {
-        getAll: () => this.getAll("test-cases"),
+        getAll: (params = {}) => this.getAll("test-cases", params),
         getById: (id) => this.getById("test-cases", id),
         create: (data) => this.create("test-cases", data),
         update: (id, data) => this.update("test-cases", id, data),
@@ -143,38 +230,26 @@ class ApiService {
     };
 
     prompts = {
-        getAll: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/prompts${queryString ? `?${queryString}` : ""}`
-            );
-        },
+        getAll: (params = {}) => this.getAll("prompts", params),
         getById: (id) => this.getById("prompts", id),
         create: (data) => this.create("prompts", data),
         update: (id, data) => this.update("prompts", id, data),
         delete: (id) => this.delete("prompts", id),
         getByTestCase: (testCaseId) =>
-            this.request(`/api/prompts?testCase=${testCaseId}`),
+            this.getAll("prompts", { testCase: testCaseId }),
     };
 
     results = {
-        getAll: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/results${queryString ? `?${queryString}` : ""}`
-            );
-        },
+        getAll: (params = {}) => this.getAll("results", params),
         getById: (id) => this.getById("results", id),
         create: (data) => this.create("results", data),
         update: (id, data) => this.update("results", id, data),
         delete: (id) => this.delete("results", id),
-        getByPrompt: (promptId) =>
-            this.request(`/api/results?prompt=${promptId}`),
-        getByMetric: (metricId) =>
-            this.request(`/api/results?metric=${metricId}`),
-        getByModel: (modelId) => this.request(`/api/results?model=${modelId}`),
+        getByPrompt: (promptId) => this.getAll("results", { prompt: promptId }),
+        getByMetric: (metricId) => this.getAll("results", { metric: metricId }),
+        getByModel: (modelId) => this.getAll("results", { model: modelId }),
         getByBenchmark: (benchmarkId) =>
-            this.request(`/api/benchmarks/${benchmarkId}/results`),
+            this.getAllPaginated(`benchmarks/${benchmarkId}/results`),
     };
 
     evaluation = {
@@ -211,6 +286,20 @@ class ApiService {
             );
         },
         getResults: (params = {}) => {
+            // For evaluation results, we might want pagination in some cases
+            const shouldPaginate =
+                params.paginate !== false &&
+                (params.pageSize || params.maxResults);
+
+            if (shouldPaginate) {
+                return this.getAllPaginated("evaluation/results", {
+                    filters: params,
+                    pageSize: params.pageSize,
+                    maxResults: params.maxResults,
+                    onProgress: params.onProgress,
+                });
+            }
+
             const queryString = new URLSearchParams(params).toString();
             return this.request(
                 `/api/evaluation/results${queryString ? `?${queryString}` : ""}`

@@ -7,6 +7,7 @@ use App\Enum\MetricParam;
 use App\Enum\MetricType;
 use App\Repository\MetricRepository;
 use App\Repository\ModelRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -36,8 +37,21 @@ class MetricController extends BaseApiController
         $search = $request->query->get('search', '');
         $limit = min($request->query->getInt('limit', 50), 100);
 
-        $metrics = $this->metricRepository->search($search, $limit);
-        return $this->jsonResponse($metrics, groups: ['metrics']);
+        $queryBuilder = $this->metricRepository->createQueryBuilder('m');
+
+        if (!empty($search)) {
+            $queryBuilder->where('m.name LIKE :search OR m.description LIKE :search')
+                ->setParameter('search', '%' . $search . '%');
+        }
+
+        // If pagination is requested, ignore the limit parameter as pagination will handle it
+        if (!PaginationHelper::shouldPaginate($request)) {
+            $queryBuilder->setMaxResults($limit);
+        }
+
+        $queryBuilder->orderBy('m.name', 'ASC');
+
+        return $this->paginatedResponse($queryBuilder, $request, ['metrics']);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\d+'])]

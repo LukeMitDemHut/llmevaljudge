@@ -7,6 +7,7 @@ use App\Repository\ModelRepository;
 use App\Repository\MetricRepository;
 use App\Repository\TestCaseRepository;
 use App\Repository\BenchmarkRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -265,6 +266,14 @@ class EvaluationController extends BaseApiController
             $queryBuilder->setParameter('testCaseIds', $testCaseIds);
         }
 
+        $queryBuilder->orderBy('r.id', 'DESC');
+
+        // If pagination is requested, use paginated response
+        if (PaginationHelper::shouldPaginate($request)) {
+            return $this->paginatedResponse($queryBuilder, $request, ['results']);
+        }
+
+        // Otherwise, use the original logic with deduplication
         $results = $queryBuilder->getQuery()->getResult();
 
         // Apply deduplication if needed

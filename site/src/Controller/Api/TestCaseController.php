@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\TestCase;
 use App\Repository\TestCaseRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,10 +26,12 @@ class TestCaseController extends BaseApiController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $testCases = $this->testCaseRepository->findAll();
-        return $this->jsonResponse($testCases, groups: ['test_cases']);
+        $queryBuilder = $this->testCaseRepository->createQueryBuilder('tc')
+            ->orderBy('tc.name', 'ASC');
+
+        return $this->paginatedResponse($queryBuilder, $request, ['test_cases']);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\d+'])]

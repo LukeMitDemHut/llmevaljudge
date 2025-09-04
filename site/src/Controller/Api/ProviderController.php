@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\Provider;
 use App\Repository\ProviderRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,10 +26,12 @@ class ProviderController extends BaseApiController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $providers = $this->providerRepository->findAll();
-        return $this->jsonResponse($providers);
+        $queryBuilder = $this->providerRepository->createQueryBuilder('p')
+            ->orderBy('p.name', 'ASC');
+
+        return $this->paginatedResponse($queryBuilder, $request);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]

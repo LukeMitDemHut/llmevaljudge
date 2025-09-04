@@ -7,6 +7,7 @@ use App\Repository\BenchmarkRepository;
 use App\Repository\TestCaseRepository;
 use App\Repository\MetricRepository;
 use App\Repository\ModelRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,10 +38,12 @@ class BenchmarkController extends BaseApiController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $benchmarks = $this->benchmarkRepository->findAll();
-        return $this->jsonResponse($benchmarks, groups: ['benchmarks']);
+        $queryBuilder = $this->benchmarkRepository->createQueryBuilder('b')
+            ->orderBy('b.id', 'DESC');
+
+        return $this->paginatedResponse($queryBuilder, $request, ['benchmarks']);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\d+'])]
@@ -110,7 +113,7 @@ class BenchmarkController extends BaseApiController
     }
 
     #[Route('/{id}/results', name: 'results', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function getResults(int $id): JsonResponse
+    public function getResults(int $id, Request $request): JsonResponse
     {
         $benchmark = $this->benchmarkRepository->find($id);
 
@@ -118,10 +121,14 @@ class BenchmarkController extends BaseApiController
             return $this->jsonResponse(['error' => 'Benchmark not found'], Response::HTTP_NOT_FOUND);
         }
 
-        // Get all results directly from the benchmark entity
-        $results = $benchmark->getResults()->toArray();
+        $queryBuilder = $this->entityManager->createQueryBuilder()
+            ->select('r')
+            ->from('App\Entity\Result', 'r')
+            ->where('r.benchmark = :benchmarkId')
+            ->setParameter('benchmarkId', $id)
+            ->orderBy('r.id', 'DESC');
 
-        return $this->jsonResponse($results, groups: ['results']);
+        return $this->paginatedResponse($queryBuilder, $request, ['results']);
     }
 
     #[Route('/{id}/start', name: 'start', methods: ['POST'], requirements: ['id' => '\d+'])]

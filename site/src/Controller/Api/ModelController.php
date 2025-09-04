@@ -5,6 +5,7 @@ namespace App\Controller\Api;
 use App\Entity\Model;
 use App\Repository\ModelRepository;
 use App\Repository\ProviderRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,10 +30,12 @@ class ModelController extends BaseApiController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $models = $this->modelRepository->findAll();
-        return $this->jsonResponse($models);
+        $queryBuilder = $this->modelRepository->createQueryBuilder('m')
+            ->orderBy('m.name', 'ASC');
+
+        return $this->paginatedResponse($queryBuilder, $request);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]

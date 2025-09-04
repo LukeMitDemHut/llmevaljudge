@@ -43,29 +43,33 @@ class ResultController extends BaseApiController
     #[Route('', name: 'index', methods: ['GET'])]
     public function index(Request $request): JsonResponse
     {
-        $filters = [];
+        $queryBuilder = $this->resultRepository->createQueryBuilder('r')
+            ->leftJoin('r.prompt', 'p')
+            ->leftJoin('r.metric', 'm')
+            ->leftJoin('r.model', 'mo')
+            ->leftJoin('r.benchmark', 'b');
 
         // Support filtering by prompt, metric, model, or benchmark
         if ($promptId = $request->query->get('prompt')) {
-            $filters['prompt'] = $promptId;
+            $queryBuilder->andWhere('r.prompt = :promptId')
+                ->setParameter('promptId', $promptId);
         }
         if ($metricId = $request->query->get('metric')) {
-            $filters['metric'] = $metricId;
+            $queryBuilder->andWhere('r.metric = :metricId')
+                ->setParameter('metricId', $metricId);
         }
         if ($modelId = $request->query->get('model')) {
-            $filters['model'] = $modelId;
+            $queryBuilder->andWhere('r.model = :modelId')
+                ->setParameter('modelId', $modelId);
         }
         if ($benchmarkId = $request->query->get('benchmark')) {
-            $filters['benchmark'] = $benchmarkId;
+            $queryBuilder->andWhere('r.benchmark = :benchmarkId')
+                ->setParameter('benchmarkId', $benchmarkId);
         }
 
-        if ($filters) {
-            $results = $this->resultRepository->findBy($filters);
-        } else {
-            $results = $this->resultRepository->findAll();
-        }
+        $queryBuilder->orderBy('r.id', 'DESC');
 
-        return $this->jsonResponse($results, groups: ['results']);
+        return $this->paginatedResponse($queryBuilder, $request, ['results']);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\d+'])]

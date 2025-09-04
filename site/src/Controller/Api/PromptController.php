@@ -5,6 +5,7 @@ namespace App\Controller\Api;
 use App\Entity\Prompt;
 use App\Repository\PromptRepository;
 use App\Repository\TestCaseRepository;
+use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,15 +32,17 @@ class PromptController extends BaseApiController
     #[Route('', name: 'index', methods: ['GET'])]
     public function index(Request $request): JsonResponse
     {
-        $testCaseId = $request->query->get('testCase');
+        $queryBuilder = $this->promptRepository->createQueryBuilder('p');
 
+        $testCaseId = $request->query->get('testCase');
         if ($testCaseId) {
-            $prompts = $this->promptRepository->findBy(['testCase' => $testCaseId]);
-        } else {
-            $prompts = $this->promptRepository->findAll();
+            $queryBuilder->where('p.testCase = :testCaseId')
+                ->setParameter('testCaseId', $testCaseId);
         }
 
-        return $this->jsonResponse($prompts, groups: ['prompts']);
+        $queryBuilder->orderBy('p.id', 'DESC');
+
+        return $this->paginatedResponse($queryBuilder, $request, ['prompts']);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'], requirements: ['id' => '\d+'])]

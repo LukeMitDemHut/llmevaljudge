@@ -8,6 +8,7 @@ export const useMetricsStore = defineStore("metrics", {
         loading: false,
         saving: false,
         errors: {},
+        loadingProgress: null, // For tracking pagination progress
     }),
 
     getters: {
