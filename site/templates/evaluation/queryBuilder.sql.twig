@@ -1,0 +1,187 @@
+-- Deduplication parameters
+WITH params AS (
+SELECT '{{ dedupe_strategy }}' AS dedupe -- 'all' / 'avg' / 'latest'
+),
+
+-- Raw dataset: join result -> prompt -> benchmark
+raw AS (
+SELECT
+result.*,
+prompt.test_case_id,
+benchmark.started_at
+FROM result
+JOIN prompt ON result.prompt_id = prompt.id
+JOIN benchmark ON result.benchmark_id = benchmark.id
+WHERE result.score IS NOT NULL
+{% for key, value in params %}
+AND {{ key }} IN ({{ value|join(', ') }})
+{% endfor %}
+),
+
+-- Branch 1: use all raw rows unchanged
+base_all AS (
+SELECT
+metric_id,
+score,
+id,
+model_id,
+prompt_id,
+benchmark_id,
+started_at,
+test_case_id
+FROM raw
+),
+
+
+
+-- Branch 2: only latest benchmark
+base_latest AS (
+SELECT
+r.metric_id,
+r.score,
+r.id,
+r.model_id,
+r.prompt_id,
+r.benchmark_id,
+r.started_at,
+r.test_case_id
+FROM (
+SELECT
+raw.*,
+ROW_NUMBER() OVER (
+PARTITION BY raw.model_id, raw.metric_id, raw.prompt_id
+ORDER BY raw.started_at DESC, raw.benchmark_id DESC
+) AS rn
+FROM raw
+) r
+WHERE r.rn = 1
+),
+
+-- Branch 3: average across all benchmarks for each combo
+base_avg AS (
+SELECT
+raw.metric_id,
+AVG(raw.score) AS score,
+raw.model_id,
+raw.prompt_id,
+raw.test_case_id,
+-- benchmark info is not unique anymore, pick MIN/MAX if you want to keep something
+NULL AS benchmark_id,
+NULL AS started_at,
+-- no single row id after averaging
+NULL AS id
+FROM raw
+GROUP BY raw.metric_id, raw.model_id, raw.prompt_id, raw.test_case_id
+),
+
+
+
+
+
+-- Choose the appropriate base according to params.dedupe.
+-- Only the matching branch will contribute rows because the WHERE checks the single-row params CTE.
+base AS (
+SELECT * FROM base_all WHERE (SELECT dedupe FROM params) = 'all'
+UNION ALL
+SELECT * FROM base_avg WHERE (SELECT dedupe FROM params) = 'avg'
+UNION ALL
+SELECT * FROM base_latest WHERE (SELECT dedupe FROM params) = 'latest'
+),
+
+-- Downstream: build median, Q1, Q3, whiskers exactly as before, using `base`
+base_ranked AS (
+SELECT
+{{ group }}_id,
+score,
+ROW_NUMBER() OVER (PARTITION BY {{ group }}_id ORDER BY score, id) AS rn,
+COUNT(*) OVER (PARTITION BY {{ group }}_id) AS cnt
+FROM base
+),
+-- median / quartile row selection (1 or 2 rows per {{ group }}_id depending on odd/even count)
+median_rows AS (
+SELECT {{ group }}_id, score
+FROM base_ranked
+WHERE rn IN (FLOOR((cnt+1)/2.0), CEIL((cnt+1)/2.0))
+),
+q1_rows AS (
+SELECT {{ group }}_id, score
+FROM base_ranked
+WHERE rn IN (FLOOR((cnt+1)*0.25), CEIL((cnt+1)*0.25))
+),
+q3_rows AS (
+SELECT {{ group }}_id, score
+FROM base_ranked
+WHERE rn IN (FLOOR((cnt+1)*0.75), CEIL((cnt+1)*0.75))
+),
+-- aggregates for median, Q1, Q3
+median_agg AS (
+SELECT {{ group }}_id, AVG(score) AS median_score
+FROM median_rows
+GROUP BY {{ group }}_id
+),
+q1_agg AS (
+SELECT {{ group }}_id, AVG(score) AS q1
+FROM q1_rows
+GROUP BY {{ group }}_id
+),
+q3_agg AS (
+SELECT {{ group }}_id, AVG(score) AS q3
+FROM q3_rows
+GROUP BY {{ group }}_id
+),
+-- global stats over all rows for the {{ group }}
+stats AS (
+SELECT {{ group }}_id,
+MIN(score) AS min_score,
+MAX(score) AS max_score,
+COUNT(*) AS total_count
+FROM base_ranked
+GROUP BY {{ group }}_id
+),
+-- compute bounds
+bounds AS (
+SELECT
+q1.{{ group }}_id,
+q1.q1,
+q3.q3,
+(q3.q3 - q1.q1) AS iqr,
+(q1.q1 - 1.5 * (q3.q3 - q1.q1)) AS lower_bound,
+(q3.q3 + 1.5 * (q3.q3 - q1.q1)) AS upper_bound
+FROM q1_agg q1
+JOIN q3_agg q3 USING ({{ group }}_id)
+),
+-- compute actual whisker values and outlier counts by comparing base rows to bounds
+whiskers AS (
+SELECT
+b.{{ group }}_id,
+MIN(CASE WHEN base_ranked.score >= b.lower_bound AND base_ranked.score <= b.upper_bound THEN base_ranked.score END) AS
+    whisker_min, MAX(CASE WHEN base_ranked.score>= b.lower_bound AND base_ranked.score <= b.upper_bound THEN
+        base_ranked.score END) AS whisker_max, SUM(CASE WHEN base_ranked.score < b.lower_bound OR base_ranked.score>
+        b.upper_bound THEN 1 ELSE 0 END) AS outlier_count
+        FROM bounds b
+        JOIN base_ranked ON base_ranked.{{ group }}_id = b.{{ group }}_id
+        GROUP BY b.{{ group }}_id
+        )
+        SELECT
+        '{{ group }}' AS group_by,
+        s.{{ group }}_id,
+        m.median_score,
+        q1.q1,
+        q3.q3,
+        (q3.q3 - q1.q1) AS iqr,
+        b.lower_bound,
+        b.upper_bound,
+        w.whisker_min,
+        w.whisker_max,
+        s.min_score,
+        s.max_score,
+        s.total_count AS count_score,
+        COALESCE(w.outlier_count, 0) AS outlier_count,
+        COALESCE(ROUND(100.0 * COALESCE(w.outlier_count, 0) / NULLIF(s.total_count,0), 4), 0) AS outlier_pct
+        FROM stats s
+        LEFT JOIN median_agg m USING ({{ group }}_id)
+        LEFT JOIN q1_agg q1 USING ({{ group }}_id)
+        LEFT JOIN q3_agg q3 USING ({{ group }}_id)
+        LEFT JOIN bounds b USING ({{ group }}_id)
+        LEFT JOIN whiskers w USING ({{ group }}_id)
+        ORDER BY s.{{ group }}_id;

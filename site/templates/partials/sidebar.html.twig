@@ -1,5 +1,5 @@
 <!-- Sidebar -->
-<div class="d-flex flex-column flex-shrink-0 bg-light border-end h-100 sidebar-container">
+<div class="d-flex flex-column flex-shrink-0 bg-light border-end h-100 sidebar-container collapsed">
     <!-- Toggle Button -->
     <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
         <a href="/" class="d-flex align-items-center text-primary text-decoration-none sidebar-brand">
@@ -97,13 +97,24 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const toggleBtn = document.querySelector('[data-bs-target="#sidebarContent"]');
         const sidebar = document.querySelector('.sidebar-container');
+        const cookies = document.cookie.split('; ').reduce((acc, cookie) => {
+            const [name, value] = cookie.split('=');
+            acc[name] = value;
+            return acc;
+        }, {});
 
+        // By default collapsed; only remove collapsed if cookie says so
+        if (cookies.sidebar_collapsed === 'false') {
+            sidebar.classList.remove('collapsed');
+        }
+
+        const toggleBtn = document.querySelector('[data-bs-target="#sidebarContent"]');
         if (toggleBtn && sidebar) {
             toggleBtn.addEventListener('click', function () {
                 setTimeout(() => {
                     sidebar.classList.toggle('collapsed');
+                    document.cookie = `sidebar_collapsed=${sidebar.classList.contains('collapsed')}; path=/; SameSite=Lax`;
                 }, 150);
             });
         }

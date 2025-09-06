@@ -661,115 +661,186 @@
                     </div>
                 </div>
 
-                <!-- Data Integrity: Deduplication -->
+                <!-- Step 6: Evaluation & Analysis -->
                 <div class="accordion-item">
-                    <h2 class="accordion-header" id="deduplicationHeading">
+                    <h2 class="accordion-header" id="evaluationHeading">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#deduplicationCollapse" aria-expanded="false"
-                            aria-controls="deduplicationCollapse">
-                            <i class="ph ph-copy text-primary me-2"></i>
-                            <strong>Data Integrity: Handling Overlapping Benchmarks</strong>
+                            data-bs-target="#evaluationCollapse" aria-expanded="false"
+                            aria-controls="evaluationCollapse">
+                            <i class="ph ph-chart-bar text-primary me-2"></i>
+                            <strong>Step 6: Run Evaluation & Analyze Results</strong>
                         </button>
                     </h2>
-                    <div id="deduplicationCollapse" class="accordion-collapse collapse"
-                        aria-labelledby="deduplicationHeading" data-bs-parent="#tutorialAccordion">
+                    <div id="evaluationCollapse" class="accordion-collapse collapse" aria-labelledby="evaluationHeading"
+                        data-bs-parent="#tutorialAccordion">
                         <div class="accordion-body">
-                            <p>When multiple benchmarks test the same combination of <strong>Model + Prompt +
-                                    Metric</strong>,
-                                you may have duplicate results that can contaminate your analysis. Our deduplication
-                                system
-                                automatically handles these overlaps to ensure clean, reliable evaluation data.</p>
+                            <p>The evaluation interface provides a unified platform for running analysis and
+                                interpreting results from your benchmarks.</p>
 
-                            <div class="alert alert-warning">
-                                <i class="ph ph-warning me-2"></i>
-                                <strong>The Problem:</strong> If Benchmark A tests "GPT-4 + Accuracy + Prompt1" and
-                                later
-                                Benchmark B tests the same combination, you'll have two results for identical
-                                conditions.
-                                This can skew analysis and create misleading comparisons.
+                            <h5 class="text-primary mb-3">Setting Up Your Analysis</h5>
+
+                            <h6 class="text-primary mb-2">Entity Selection (AND Logic):</h6>
+                            <div class="alert alert-info">
+                                <i class="ph ph-info me-2"></i>
+                                <strong>Important:</strong> All selected entities use <strong>AND logic</strong>.
+                                Results must satisfy <em>all</em> selected criteria simultaneously. For example,
+                                selecting "GPT-4" + "Accuracy Metric" + "Math Problems" will only show results
+                                where GPT-4 was evaluated on Math Problems using the Accuracy Metric.
                             </div>
 
+                            <ul class="mb-3">
+                                <li><strong>Models:</strong> Choose which AI models to analyze</li>
+                                <li><strong>Metrics:</strong> Select evaluation criteria to compare</li>
+                                <li><strong>Test Cases:</strong> Pick specific test scenarios</li>
+                                <li><strong>Benchmarks:</strong> Filter by benchmark suites</li>
+                                <li><strong>Prompts:</strong> Focus on particular prompt types</li>
+                            </ul>
+
+                            <h6 class="text-primary mb-2">Grouping & Analysis Options:</h6>
+                            <ul class="mb-3">
+                                <li><strong>Group By:</strong> Organize results by Models, Metrics, Test Cases,
+                                    Benchmarks, or Prompts</li>
+                                <li><strong>Deduplication Strategy:</strong> Handle overlapping benchmark results</li>
+                            </ul>
+
                             <h5 class="text-primary mb-3">Deduplication Strategies</h5>
+                            <p>When multiple benchmarks test the same combination of <strong>Model + Prompt +
+                                    Metric</strong>,
+                                deduplication ensures clean analysis:</p>
 
                             <div class="row mb-4">
                                 <div class="col-md-4">
-                                    <div class="card border-success h-100">
+                                    <div class="card border-success">
                                         <div class="card-header bg-success text-white">
-                                            <i class="ph ph-clock-clockwise me-2"></i>
                                             <strong>Latest (Recommended)</strong>
                                         </div>
                                         <div class="card-body">
-                                            <p class="mb-2"><strong>How it works:</strong> Uses the result from the most
-                                                recent benchmark (highest benchmark ID).</p>
-                                            <p class="mb-2"><strong>When to use:</strong> Default choice for most
-                                                scenarios. Assumes newer benchmarks have improved configurations or
-                                                models.</p>
-                                            <div class="small text-muted">
-                                                <strong>Example:</strong> Benchmark A (ID: 1) and Benchmark B (ID: 3)
-                                                both test the same combination → Uses result from Benchmark B
-                                            </div>
+                                            <p class="small mb-2">Uses results from the most recent benchmark. May
+                                                exclude some selected benchmarks if newer ones exist for the same
+                                                conditions.</p>
+                                            <p class="small mb-0"><strong>Best for:</strong> Getting current performance
+                                                data</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <div class="card border-info h-100">
+                                    <div class="card border-info">
                                         <div class="card-header bg-info text-white">
-                                            <i class="ph ph-list me-2"></i>
                                             <strong>All</strong>
                                         </div>
                                         <div class="card-body">
-                                            <p class="mb-2"><strong>How it works:</strong> Includes all results without
-                                                any filtering.</p>
-                                            <p class="mb-2"><strong>When to use:</strong> When you want to see variance
-                                                between benchmark runs or analyze consistency across time.</p>
-                                            <div class="small text-muted">
-                                                <strong>Example:</strong> Shows both results from Benchmark A and B,
-                                                useful for spotting inconsistencies
-                                            </div>
+                                            <p class="small mb-2">Includes every result without filtering. Respects all
+                                                benchmark selections.</p>
+                                            <p class="small mb-0"><strong>Best for:</strong> Analyzing consistency and
+                                                variance</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <div class="card border-warning h-100">
+                                    <div class="card border-warning">
                                         <div class="card-header bg-warning text-dark">
-                                            <i class="ph ph-equals me-2"></i>
                                             <strong>Average</strong>
                                         </div>
                                         <div class="card-body">
-                                            <p class="mb-2"><strong>How it works:</strong> Creates a virtual result with
-                                                the averaged score from all duplicates.</p>
-                                            <p class="mb-2"><strong>When to use:</strong> When you want to reduce
-                                                variance and get a more stable performance estimate.</p>
-                                            <div class="small text-muted">
-                                                <strong>Example:</strong> Benchmark A scores 0.8, Benchmark B scores 0.6
-                                                → Creates result with score 0.7
-                                            </div>
+                                            <p class="small mb-2">Creates virtual results with averaged scores from
+                                                duplicates.</p>
+                                            <p class="small mb-0"><strong>Best for:</strong> Stable performance
+                                                estimates</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <h6 class="text-primary mb-2">How Deduplication Detection Works</h6>
-                            <p class="mb-3">The system identifies duplicates by grouping results with identical:</p>
+                            <h5 class="text-primary mb-3">Understanding the Results Dashboard</h5>
+
+                            <h6 class="text-primary mb-2">📊 Statistical Summary Cards:</h6>
                             <ul class="mb-3">
-                                <li><strong>Prompt ID:</strong> Same input text being tested</li>
-                                <li><strong>Metric ID:</strong> Same evaluation criteria</li>
-                                <li><strong>Model ID:</strong> Same AI model being evaluated</li>
+                                <li><strong>Total Groups:</strong> Number of grouped entities (e.g., models if grouped
+                                    by model)</li>
+                                <li><strong>Total Data Points:</strong> Sum of all individual test results</li>
+                                <li><strong>Overall Average:</strong> Weighted average across all results</li>
+                                <li><strong>Best Performer:</strong> Highest-scoring entity in your grouping</li>
                             </ul>
 
-                            <div class="row mb-4">
+                            <h6 class="text-primary mb-2">📈 Chart Visualizations:</h6>
+
+                            <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="card border-light">
                                         <div class="card-header">
-                                            <i class="ph ph-check-circle text-success me-2"></i>
-                                            <strong>Automatic Application</strong>
+                                            <strong>📦 Box Plot (Score Distribution)</strong>
                                         </div>
-                                        <div class="card-body">
-                                            <p class="small mb-2">Deduplication automatically applies when:</p>
-                                            <ul class="small mb-0">
-                                                <li>Analyzing results across multiple benchmarks</li>
-                                                <li>No specific benchmark is selected</li>
-                                                <li>Strategy is not set to "All"</li>
+                                        <div class="card-body small">
+                                            <p class="mb-2"><strong>What it shows:</strong> Statistical distribution of
+                                                scores for each group</p>
+                                            <ul class="mb-2">
+                                                <li><strong>Box:</strong> 25th to 75th percentile (middle 50% of scores)
+                                                </li>
+                                                <li><strong>Line in box:</strong> Median score</li>
+                                                <li><strong>Whiskers:</strong> Min/max within 1.5× IQR</li>
+                                                <li><strong>Dots:</strong> Outlier scores</li>
+                                            </ul>
+                                            <p class="mb-0"><strong>Use for:</strong> Identifying consistency, outliers,
+                                                and score spread</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-light">
+                                        <div class="card-header">
+                                            <strong>🎯 Radar Chart (Performance Profile)</strong>
+                                        </div>
+                                        <div class="card-body small">
+                                            <p class="mb-2"><strong>What it shows:</strong> Multi-dimensional
+                                                performance comparison</p>
+                                            <ul class="mb-2">
+                                                <li><strong>Axes:</strong> Different grouped entities (e.g., models)
+                                                </li>
+                                                <li><strong>Distance from center:</strong> Performance level</li>
+                                                <li><strong>Shape:</strong> Overall performance profile</li>
+                                            </ul>
+                                            <p class="mb-0"><strong>Use for:</strong> Spotting strengths/weaknesses
+                                                across dimensions</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <div class="card border-light">
+                                        <div class="card-header">
+                                            <strong>📊 Bar Chart (Average Scores)</strong>
+                                        </div>
+                                        <div class="card-body small">
+                                            <p class="mb-2"><strong>What it shows:</strong> Simple comparison of average
+                                                performance</p>
+                                            <ul class="mb-2">
+                                                <li><strong>Height:</strong> Average score for each group</li>
+                                                <li><strong>Color coding:</strong> Visual performance ranking</li>
+                                                <li><strong>Sorted order:</strong> Best to worst performers</li>
+                                            </ul>
+                                            <p class="mb-0"><strong>Use for:</strong> Quick ranking and performance gaps
+                                                identification</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-primary mb-2">📋 Detailed Data Tables:</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="card border-light">
+                                        <div class="card-header">
+                                            <strong>Statistical Breakdown</strong>
+                                        </div>
+                                        <div class="card-body small">
+                                            <ul class="mb-0">
+                                                <li><strong>Count:</strong> Number of test results</li>
+                                                <li><strong>Average/Median:</strong> Central tendencies</li>
+                                                <li><strong>Min/Max:</strong> Score range</li>
+                                                <li><strong>Q1/Q3/IQR:</strong> Quartile analysis</li>
+                                                <li><strong>Outliers:</strong> Unusual results count</li>
                                             </ul>
                                         </div>
                                     </div>
@@ -777,84 +848,57 @@
                                 <div class="col-md-6">
                                     <div class="card border-light">
                                         <div class="card-header">
-                                            <i class="ph ph-x-circle text-danger me-2"></i>
-                                            <strong>When Not Applied</strong>
+                                            <strong>Individual Results</strong>
                                         </div>
-                                        <div class="card-body">
-                                            <p class="small mb-2">Deduplication is skipped when:</p>
-                                            <ul class="small mb-0">
-                                                <li>Analyzing a specific single benchmark</li>
-                                                <li>Strategy is explicitly set to "All"</li>
-                                                <li>No duplicates exist in the dataset</li>
+                                        <div class="card-body small">
+                                            <ul class="mb-0">
+                                                <li><strong>Entity Names:</strong> Clear identification (not just IDs)
+                                                </li>
+                                                <li><strong>Scores:</strong> Individual test performance</li>
+                                                <li><strong>Color coding:</strong> Visual score indicators</li>
+                                                <li><strong>Complete context:</strong> All evaluation details</li>
                                             </ul>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <h6 class="text-primary mb-2">Real-World Scenarios</h6>
-
+                            <h6 class="text-primary mb-2">🖨️ PDF Export & Configuration Summary:</h6>
                             <div class="card border-primary mb-3">
-                                <div class="card-header">
-                                    <i class="ph ph-calendar me-2"></i>
-                                    <strong>Scenario 1: Model Updates Over Time</strong>
-                                </div>
                                 <div class="card-body">
-                                    <p class="mb-2">You ran Benchmark A in January testing GPT-4, then in March you run
-                                        Benchmark B testing the same prompts with updated GPT-4.</p>
-                                    <p class="mb-2"><strong>Problem:</strong> March results might be different due to
-                                        model improvements, but you have duplicate test conditions.</p>
-                                    <p class="mb-0"><strong>Solution:</strong> Use "Latest" strategy to automatically
-                                        prefer March results, ensuring your analysis reflects current model performance.
-                                    </p>
+                                    <p class="mb-2">Every analysis includes a <strong>Configuration Summary
+                                            Table</strong> showing:</p>
+                                    <ul class="mb-3">
+                                        <li><strong>Analysis Metadata:</strong> Generation time, grouping, deduplication
+                                            strategy</li>
+                                        <li><strong>Selected Entities:</strong> Exact models, metrics, test cases,
+                                            benchmarks, and prompts used</li>
+                                        <li><strong>Smart Display:</strong> Shows full names + IDs, or just IDs if >15
+                                            items per category</li>
+                                    </ul>
+                                    <p class="mb-0"><strong>Print to PDF:</strong> Click the "Print PDF" button to
+                                        generate a comprehensive report including all charts, tables, and configuration
+                                        details. Charts are properly rendered in the PDF output.</p>
                                 </div>
                             </div>
 
-                            <div class="card border-primary mb-3">
-                                <div class="card-header">
-                                    <i class="ph ph-test-tube me-2"></i>
-                                    <strong>Scenario 2: Experimental Benchmarks</strong>
-                                </div>
-                                <div class="card-body">
-                                    <p class="mb-2">You create Benchmark A for initial testing, then Benchmark B with
-                                        refined metrics but some overlapping test cases.</p>
-                                    <p class="mb-2"><strong>Problem:</strong> Mixed results from different evaluation
-                                        approaches contaminate analysis.</p>
-                                    <p class="mb-0"><strong>Solution:</strong> Use "Latest" to prefer refined Benchmark
-                                        B results, or "Average" to smooth out evaluation differences.</p>
-                                </div>
-                            </div>
+                            <h5 class="text-primary mb-3">Interpreting Your Results</h5>
 
-                            <div class="card border-primary mb-3">
-                                <div class="card-header">
-                                    <i class="ph ph-chart-line me-2"></i>
-                                    <strong>Scenario 3: Consistency Analysis</strong>
-                                </div>
-                                <div class="card-body">
-                                    <p class="mb-2">You want to check if your evaluation metrics produce consistent
-                                        results across multiple benchmark runs.</p>
-                                    <p class="mb-2"><strong>Problem:</strong> Need to see all results to identify
-                                        variance and inconsistencies.</p>
-                                    <p class="mb-0"><strong>Solution:</strong> Use "All" strategy to see every result
-                                        and identify evaluation stability issues.</p>
-                                </div>
-                            </div>
-
-                            <h6 class="text-primary mb-2">Best Practices</h6>
-                            <div class="row">
+                            <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="card border-success">
                                         <div class="card-header bg-success text-white">
-                                            <h6 class="mb-0">✅ Recommended Approach</h6>
+                                            <h6 class="mb-0">✅ What to Look For</h6>
                                         </div>
                                         <div class="card-body">
                                             <ul class="mb-0 small">
-                                                <li><strong>Default to "Latest"</strong> for most analysis</li>
-                                                <li><strong>Use "All"</strong> when investigating inconsistencies</li>
-                                                <li><strong>Use "Average"</strong> for more stable trend analysis</li>
-                                                <li><strong>Document</strong> which strategy you used in reports</li>
-                                                <li><strong>Check metadata</strong> in results to see what was applied
+                                                <li><strong>Consistent performers:</strong> Models with tight box plots
                                                 </li>
+                                                <li><strong>High medians:</strong> Reliable average performance</li>
+                                                <li><strong>Low outlier counts:</strong> Predictable behavior</li>
+                                                <li><strong>Balanced radar charts:</strong> Well-rounded capabilities
+                                                </li>
+                                                <li><strong>Score patterns:</strong> Strengths in specific metrics</li>
                                             </ul>
                                         </div>
                                     </div>
@@ -862,218 +906,161 @@
                                 <div class="col-md-6">
                                     <div class="card border-warning">
                                         <div class="card-header bg-warning text-dark">
-                                            <h6 class="mb-0">⚠️ Things to Consider</h6>
+                                            <h6 class="mb-0">⚠️ Red Flags</h6>
                                         </div>
                                         <div class="card-body">
                                             <ul class="mb-0 small">
-                                                <li><strong>Model versions:</strong> Ensure duplicate results are truly
-                                                    comparable</li>
-                                                <li><strong>Time sensitivity:</strong> Consider if older results are
-                                                    still relevant</li>
-                                                <li><strong>Evaluation changes:</strong> Be aware of metric refinements
-                                                    between benchmarks</li>
-                                                <li><strong>Data lineage:</strong> Track which benchmarks contributed to
-                                                    final results</li>
+                                                <li><strong>Wide box plots:</strong> Inconsistent performance</li>
+                                                <li><strong>Many outliers:</strong> Unpredictable behavior</li>
+                                                <li><strong>Low sample sizes:</strong> Unreliable statistics</li>
+                                                <li><strong>Extreme radar shapes:</strong> Unbalanced capabilities</li>
+                                                <li><strong>Large score gaps:</strong> Quality differences</li>
                                             </ul>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="alert alert-info mt-3">
-                                <i class="ph ph-info me-2"></i>
-                                <strong>Technical Note:</strong> Deduplication works at the analysis level and doesn't
-                                modify your stored benchmark results.
-                                Original data remains intact, and you can always switch strategies to see different
-                                views of the same data.
-                            </div>
-
-                            <div class="alert alert-success mt-3">
-                                <i class="ph ph-lightbulb me-2"></i>
-                                <strong>Pro Tip:</strong> Use the evaluation interface to experiment with different
-                                deduplication strategies.
-                                The analysis metadata will show you which strategy was applied and whether any
-                                duplicates were found.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Step 6: Evaluation -->
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="evaluationHeading">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#evaluationCollapse" aria-expanded="false"
-                            aria-controls="evaluationCollapse">
-                            <i class="ph ph-chart-bar text-primary me-2"></i>
-                            <strong>Step 6: Analyze Results</strong>
-                        </button>
-                    </h2>
-                    <div id="evaluationCollapse" class="accordion-collapse collapse" aria-labelledby="evaluationHeading"
-                        data-bs-parent="#tutorialAccordion">
-                        <div class="accordion-body">
-                            <p>The evaluation page provides comprehensive analysis of your benchmark results.</p>
-
-                            <h6 class="text-primary mb-2">What You'll See:</h6>
-                            <ul class="mb-3">
-                                <li><strong>Overall Scores:</strong> Aggregate performance across all metrics</li>
-                                <li><strong>Model Comparisons:</strong> Side-by-side performance analysis</li>
-                                <li><strong>Metric Breakdown:</strong> Detailed scores for each evaluation criterion
-                                </li>
-                                <li><strong>Individual Results:</strong> Specific outputs and evaluation reasoning</li>
-                                <li><strong>Performance Insights:</strong> Strengths and weaknesses identification</li>
-                            </ul>
-
-                            <h6 class="text-primary mb-2">Interpreting Results:</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card border-light">
-                                        <div class="card-body">
-                                            <h6 class="card-title">
-                                                <i class="ph ph-trend-up text-success me-1"></i>
-                                                High Scores (0.7-1.0)
-                                            </h6>
-                                            <p class="card-text small">Model performs well on this metric. Consider this
-                                                model for production or similar use cases.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card border-light">
-                                        <div class="card-body">
-                                            <h6 class="card-title">
-                                                <i class="ph ph-trend-down text-danger me-1"></i>
-                                                Low Scores (0.0-0.3)
-                                            </h6>
-                                            <p class="card-text small">Model struggles with this criterion. Consider
-                                                different models or additional training.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add to the workflow decision tree -->
-            <div class="card border-primary mt-3">
-                <div class="card-header bg-primary text-white">
-                    <i class="ph ph-question me-2"></i>
-                    <strong>Which Metric Should I Use?</strong>
-                </div>
-                <div class="card-body">
-                    <div class="decision-tree">
-                        <div class="alert alert-light border">
-                            <strong>Start Here:</strong> What are you evaluating?
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-md-4">
-                                <div class="card border-info">
-                                    <div class="card-header bg-info text-white">Factual Accuracy</div>
-                                    <div class="card-body">
-                                        <p><strong>Need current/real-time info?</strong></p>
-                                        <p>✅ <strong>TALE</strong> - Web-verified facts</p>
-                                        <p><strong>Have reference answers?</strong></p>
-                                        <p>✅ <strong>G-Eval</strong> - Quick comparison</p>
-                                        <p><strong>Need complex verification logic?</strong></p>
-                                        <p>✅ <strong>DAG</strong> - Multi-step validation</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <div class="card border-success">
-                                    <div class="card-header bg-success text-white">Quality & Style</div>
-                                    <div class="card-body">
-                                        <p><strong>Subjective criteria?</strong></p>
-                                        <p>✅ <strong>G-Eval</strong> - Flexible assessment</p>
-                                        <p><strong>Multiple quality dimensions?</strong></p>
-                                        <p>✅ <strong>DAG</strong> - Structured evaluation</p>
-                                        <p><strong>Simple pass/fail?</strong></p>
-                                        <p>✅ <strong>G-Eval</strong> - Straightforward</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <div class="card border-warning">
-                                    <div class="card-header bg-warning text-dark">Complex Logic</div>
-                                    <div class="card-body">
-                                        <p><strong>Multi-step reasoning?</strong></p>
-                                        <p>✅ <strong>DAG</strong> - Decision trees</p>
-                                        <p><strong>Conditional evaluation?</strong></p>
-                                        <p>✅ <strong>DAG</strong> - If-then logic</p>
-                                        <p><strong>Need full transparency?</strong></p>
-                                        <p>✅ <strong>DAG</strong> - Explainable paths</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Best Practices Summary -->
-            <div class="card mt-4 border-primary">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="ph ph-star me-2"></i>
-                        Quick Start Best Practices
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6 class="text-primary">Getting Started</h6>
-                            <ol class="small">
-                                <li>Start with 1-2 simple G-Eval metrics</li>
-                                <li>Create 5-10 diverse test cases</li>
-                                <li>Test with 2-3 models initially</li>
-                                <li>Run small benchmarks first</li>
-                                <li>Iterate based on results</li>
+                            <h6 class="text-primary mb-2">Analysis Workflow Tips:</h6>
+                            <ol class="mb-3">
+                                <li><strong>Start broad:</strong> Select all relevant entities to get an overview</li>
+                                <li><strong>Use grouping strategically:</strong> Group by models to compare AI systems,
+                                    by metrics to compare evaluation criteria</li>
+                                <li><strong>Check deduplication impact:</strong> Switch between "Latest" and "All" to
+                                    see if results change significantly</li>
+                                <li><strong>Dive into details:</strong> Use statistical tables to understand what the
+                                    charts are showing</li>
+                                <li><strong>Export findings:</strong> Generate PDFs for reports and presentations</li>
+                                <li><strong>Iterate analysis:</strong> Reconfigure with different groupings to explore
+                                    various perspectives</li>
                             </ol>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="text-primary">Advanced Tips</h6>
-                            <ul class="small">
-                                <li>Use steps-based G-Eval for consistency</li>
-                                <li>Combine multiple complementary metrics</li>
-                                <li>Test metrics with known good/bad examples</li>
-                                <li>Document your evaluation criteria clearly</li>
-                                <li>Regular benchmark updates as models improve</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Navigation -->
-            <div class="card mt-4">
-                <div class="card-body text-center">
-                    <h6 class="mb-3">Ready to get started?</h6>
-                    <div class="d-flex justify-content-center gap-2 flex-wrap">
-                        <a href="/settings" class="btn btn-outline-primary">
-                            <i class="ph ph-gear me-1"></i>
-                            Configure Settings
-                        </a>
-                        <a href="/metrics" class="btn btn-outline-primary">
-                            <i class="ph ph-chart-line me-1"></i>
-                            Create Metrics
-                        </a>
-                        <a href="/testcases" class="btn btn-outline-primary">
-                            <i class="ph ph-list-checks me-1"></i>
-                            Add Test Cases
-                        </a>
-                        <a href="/benchmarks" class="btn btn-outline-primary">
-                            <i class="ph ph-cpu me-1"></i>
-                            Create Benchmark
-                        </a>
+                            <div class="alert alert-info">
+                                <i class="ph ph-lightbulb me-2"></i>
+                                <strong>Pro Tip:</strong> Use the configuration summary table to verify your analysis
+                                includes the data you intended. The "Total Groups" and "Total Data Points" help confirm
+                                you're getting meaningful sample sizes.
+                            </div>
+                        </div>
+
+                        <!-- Add to the workflow decision tree -->
+                        <div class="card border-primary mt-3">
+                            <div class="card-header bg-primary text-white">
+                                <i class="ph ph-question me-2"></i>
+                                <strong>Which Metric Should I Use?</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="decision-tree">
+                                    <div class="alert alert-light border">
+                                        <strong>Start Here:</strong> What are you evaluating?
+                                    </div>
+
+                                    <div class="row mt-3">
+                                        <div class="col-md-4">
+                                            <div class="card border-info">
+                                                <div class="card-header bg-info text-white">Factual Accuracy</div>
+                                                <div class="card-body">
+                                                    <p><strong>Need current/real-time info?</strong></p>
+                                                    <p>✅ <strong>TALE</strong> - Web-verified facts</p>
+                                                    <p><strong>Have reference answers?</strong></p>
+                                                    <p>✅ <strong>G-Eval</strong> - Quick comparison</p>
+                                                    <p><strong>Need complex verification logic?</strong></p>
+                                                    <p>✅ <strong>DAG</strong> - Multi-step validation</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <div class="card border-success">
+                                                <div class="card-header bg-success text-white">Quality & Style</div>
+                                                <div class="card-body">
+                                                    <p><strong>Subjective criteria?</strong></p>
+                                                    <p>✅ <strong>G-Eval</strong> - Flexible assessment</p>
+                                                    <p><strong>Multiple quality dimensions?</strong></p>
+                                                    <p>✅ <strong>DAG</strong> - Structured evaluation</p>
+                                                    <p><strong>Simple pass/fail?</strong></p>
+                                                    <p>✅ <strong>G-Eval</strong> - Straightforward</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <div class="card border-warning">
+                                                <div class="card-header bg-warning text-dark">Complex Logic</div>
+                                                <div class="card-body">
+                                                    <p><strong>Multi-step reasoning?</strong></p>
+                                                    <p>✅ <strong>DAG</strong> - Decision trees</p>
+                                                    <p><strong>Conditional evaluation?</strong></p>
+                                                    <p>✅ <strong>DAG</strong> - If-then logic</p>
+                                                    <p><strong>Need full transparency?</strong></p>
+                                                    <p>✅ <strong>DAG</strong> - Explainable paths</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Best Practices Summary -->
+                        <div class="card mt-4 border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">
+                                    <i class="ph ph-star me-2"></i>
+                                    Quick Start Best Practices
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-primary">Getting Started</h6>
+                                        <ol class="small">
+                                            <li>Start with 1-2 simple G-Eval metrics</li>
+                                            <li>Create 5-10 diverse test cases</li>
+                                            <li>Test with 2-3 models initially</li>
+                                            <li>Run small benchmarks first</li>
+                                            <li>Iterate based on results</li>
+                                        </ol>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-primary">Advanced Tips</h6>
+                                        <ul class="small">
+                                            <li>Use steps-based G-Eval for consistency</li>
+                                            <li>Combine multiple complementary metrics</li>
+                                            <li>Test metrics with known good/bad examples</li>
+                                            <li>Document your evaluation criteria clearly</li>
+                                            <li>Regular benchmark updates as models improve</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Navigation -->
+                        <div class="card mt-4">
+                            <div class="card-body text-center">
+                                <h6 class="mb-3">Ready to get started?</h6>
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    <a href="/settings" class="btn btn-outline-primary">
+                                        <i class="ph ph-gear me-1"></i>
+                                        Configure Settings
+                                    </a>
+                                    <a href="/metrics" class="btn btn-outline-primary">
+                                        <i class="ph ph-chart-line me-1"></i>
+                                        Create Metrics
+                                    </a>
+                                    <a href="/testcases" class="btn btn-outline-primary">
+                                        <i class="ph ph-list-checks me-1"></i>
+                                        Add Test Cases
+                                    </a>
+                                    <a href="/benchmarks" class="btn btn-outline-primary">
+                                        <i class="ph ph-cpu me-1"></i>
+                                        Create Benchmark
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+            {% endblock %}

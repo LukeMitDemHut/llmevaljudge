@@ -74,7 +74,9 @@ class ApiService {
             const params = new URLSearchParams({
                 ...filters,
                 page: page.toString(),
-                pageSize: Math.min(pageSize, this.maxPageSize).toString(),
+                // Use page_size for evaluation endpoint, pageSize for others
+                [resource === "evaluation" ? "page_size" : "pageSize"]:
+                    Math.min(pageSize, this.maxPageSize).toString(),
                 paginate: "true",
             });
 
@@ -85,7 +87,9 @@ class ApiService {
             if (response && response.pagination) {
                 // Paginated response
                 allData = allData.concat(response.data || []);
-                hasMore = response.pagination.hasNext;
+                hasMore =
+                    response.pagination.hasNext ||
+                    (response.data && response.data.length === pageSize);
                 totalFetched += (response.data || []).length;
 
                 if (onProgress) {
@@ -252,61 +256,6 @@ class ApiService {
             this.getAllPaginated(`benchmarks/${benchmarkId}/results`),
     };
 
-    evaluation = {
-        getModelAnalysis: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/evaluation/model-analysis${
-                    queryString ? `?${queryString}` : ""
-                }`
-            );
-        },
-        getMetricAnalysis: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/evaluation/metric-analysis${
-                    queryString ? `?${queryString}` : ""
-                }`
-            );
-        },
-        getTestCaseAnalysis: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/evaluation/test-case-analysis${
-                    queryString ? `?${queryString}` : ""
-                }`
-            );
-        },
-        getBenchmarkAnalysis: (params = {}) => {
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/evaluation/benchmark-analysis${
-                    queryString ? `?${queryString}` : ""
-                }`
-            );
-        },
-        getResults: (params = {}) => {
-            // For evaluation results, we might want pagination in some cases
-            const shouldPaginate =
-                params.paginate !== false &&
-                (params.pageSize || params.maxResults);
-
-            if (shouldPaginate) {
-                return this.getAllPaginated("evaluation/results", {
-                    filters: params,
-                    pageSize: params.pageSize,
-                    maxResults: params.maxResults,
-                    onProgress: params.onProgress,
-                });
-            }
-
-            const queryString = new URLSearchParams(params).toString();
-            return this.request(
-                `/api/evaluation/results${queryString ? `?${queryString}` : ""}`
-            );
-        },
-    };
-
     settings = {
         getAll: () => this.request("/api/settings"),
         get: (name) => this.request(`/api/settings/${name}`),
@@ -320,6 +269,10 @@ class ApiService {
                 method: "POST",
                 body: JSON.stringify(data),
             }),
+    };
+
+    evaluation = {
+        getAll: (params = {}) => this.getAll("evaluation", params),
     };
 }
 

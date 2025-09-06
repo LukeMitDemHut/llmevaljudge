@@ -2,213 +2,496 @@
     <div class="container-fluid py-4" data-bs-theme="light">
         <div class="row justify-content-center">
             <div class="col-12 col-xl-10">
-                <PageHeading title="Evaluation" icon="graph">
-                    <div class="d-flex gap-2 align-items-center">
-                        <!-- Deduplication Strategy Selector -->
-                        <div class="d-flex align-items-center gap-2">
-                            <label
-                                for="deduplicationStrategy"
-                                class="form-label mb-0 text-muted small"
-                            >
-                                <i class="ph ph-copy me-1"></i>
-                                Deduplication:
-                            </label>
-                            <select
-                                id="deduplicationStrategy"
-                                v-model="resultsStore.deduplicationStrategy"
-                                @change="handleDeduplicationChange"
-                                class="form-select form-select-sm"
-                                style="width: auto; min-width: 120px"
-                            >
-                                <option value="latest">Latest</option>
-                                <option value="all">All</option>
-                                <option value="average">Average</option>
-                            </select>
-                            <div class="ms-1">
-                                <i
-                                    class="ph ph-info text-muted"
-                                    data-bs-toggle="tooltip"
-                                    data-bs-placement="bottom"
-                                    :title="getDeduplicationTooltip()"
-                                ></i>
+                <PageHeading title="Evaluation" icon="graph"> </PageHeading>
+
+                <!-- Configuration Section (collapsible when results are loaded) -->
+                <div
+                    class="configuration-section"
+                    :class="{ minimized: showResults }"
+                >
+                    <div
+                        v-if="showResults"
+                        class="minimized-header"
+                        @click="showResults = false"
+                    >
+                        <div
+                            class="d-flex justify-content-between align-items-center"
+                        >
+                            <div>
+                                <Icon name="gear" class="me-2" />
+                                <strong>Evaluation Configuration</strong>
+                                <span class="text-muted ms-2"
+                                    >(Click to reconfigure)</span
+                                >
+                            </div>
+                            <Icon name="chevron-down" />
+                        </div>
+                    </div>
+
+                    <div v-else class="configuration-content">
+                        <!-- Global loading indicator -->
+                        <div
+                            v-if="
+                                evaluationStore.isAnyLoading &&
+                                !evaluationStore.loading.evaluation
+                            "
+                            class="alert alert-info d-flex align-items-center mb-4"
+                        >
+                            <div class="spinner me-3"></div>
+                            <div>
+                                <strong>Loading data...</strong>
+                                <div class="small text-muted">
+                                    Fetching evaluation data from the server.
+                                    This may take a moment.
+                                </div>
                             </div>
                         </div>
 
-                        <ButtonGroup
-                            @click="printResults"
-                            :buttons="[
+                        <Accordion
+                            :items="[
                                 {
-                                    id: 'print',
-                                    icon: 'printer',
-                                    variant: 'outline-secondary',
-                                    size: 'sm',
+                                    id: 'dimension',
+                                    label: 'Dimension to compare',
+                                },
+                                {
+                                    id: 'model',
+                                    label: 'Models to include',
+                                },
+                                {
+                                    id: 'metric',
+                                    label: 'Metrics to include',
+                                },
+                                {
+                                    id: 'test_case',
+                                    label: 'Test Case to include',
+                                },
+                                {
+                                    id: 'benchmark',
+                                    label: 'Benchmark to include',
+                                },
+                                {
+                                    id: 'prompt',
+                                    label: 'Prompt to include',
+                                },
+                                {
+                                    id: 'options',
+                                    label: 'Evaluation Options',
                                 },
                             ]"
-                            aria-label="Settings actions"
                         >
-                        </ButtonGroup>
-                    </div>
-                </PageHeading>
+                            <template v-slot:dimension-pane>
+                                <p>
+                                    Select what dimension to compare across the
+                                    dataset
+                                </p>
+                                <InputDropdown
+                                    v-model="selectedData.dimension"
+                                    :options="
+                                        evaluationStore.getAvailableDimensions
+                                    "
+                                    valueKey="id"
+                                    labelKey="label"
+                                />
+                            </template>
+                            <template v-slot:model-pane>
+                                <p>
+                                    Select which models to include in the
+                                    evaluation
+                                </p>
+                                <div
+                                    v-if="evaluationStore.loading.models"
+                                    class="loading-state"
+                                >
+                                    <div class="spinner"></div>
+                                    <span>Loading models...</span>
+                                </div>
+                                <InputMultiSelect
+                                    v-else
+                                    v-model="selectedData.model"
+                                    :options="
+                                        evaluationStore.getAvailableModels
+                                    "
+                                    placeholder="Select models..."
+                                    :required="true"
+                                />
+                            </template>
+                            <template v-slot:metric-pane>
+                                <p>
+                                    Select which metrics to include in the
+                                    evaluation
+                                </p>
+                                <div
+                                    v-if="evaluationStore.loading.metrics"
+                                    class="loading-state"
+                                >
+                                    <div class="spinner"></div>
+                                    <span>Loading metrics...</span>
+                                </div>
+                                <InputMultiSelect
+                                    v-else
+                                    v-model="selectedData.metric"
+                                    :options="
+                                        evaluationStore.getAvailableMetrics
+                                    "
+                                    placeholder="Select metrics..."
+                                    :required="true"
+                                />
+                            </template>
+                            <template v-slot:test_case-pane>
+                                <p>
+                                    Select which test cases to include in the
+                                    evaluation
+                                </p>
+                                <div
+                                    v-if="evaluationStore.loading.testCases"
+                                    class="loading-state"
+                                >
+                                    <div class="spinner"></div>
+                                    <span>Loading test cases...</span>
+                                </div>
+                                <InputMultiSelect
+                                    v-else
+                                    v-model="selectedData.test_case"
+                                    :options="
+                                        evaluationStore.getAvailableTestCases
+                                    "
+                                    placeholder="Select test cases..."
+                                    :required="true"
+                                />
+                            </template>
+                            <template v-slot:benchmark-pane>
+                                <p>
+                                    Select which benchmarks to include in the
+                                    evaluation
+                                </p>
+                                <div
+                                    v-if="evaluationStore.loading.benchmarks"
+                                    class="loading-state"
+                                >
+                                    <div class="spinner"></div>
+                                    <span>Loading benchmarks...</span>
+                                </div>
+                                <InputMultiSelect
+                                    v-else
+                                    v-model="selectedData.benchmark"
+                                    :options="
+                                        evaluationStore.getAvailableBenchmarks
+                                    "
+                                    placeholder="Select benchmarks..."
+                                    :required="true"
+                                />
+                            </template>
+                            <template v-slot:prompt-pane>
+                                <p>
+                                    Select which prompts to include in the
+                                    evaluation
+                                </p>
+                                <div
+                                    v-if="evaluationStore.loading.prompts"
+                                    class="loading-state"
+                                >
+                                    <div class="spinner"></div>
+                                    <span>Loading prompts...</span>
+                                </div>
+                                <InputMultiSelect
+                                    v-else
+                                    v-model="selectedData.prompt"
+                                    :options="
+                                        evaluationStore.getAvailablePrompts
+                                    "
+                                    placeholder="Select prompts..."
+                                    :required="true"
+                                />
+                            </template>
+                            <template v-slot:options-pane>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label"
+                                            >Deduplication Strategy</label
+                                        >
+                                        <p class="text-muted small mb-3">
+                                            How to handle results from the same
+                                            test configuration across different
+                                            benchmark runs
+                                        </p>
+                                        <InputDropdown
+                                            v-model="
+                                                selectedData.dedupeStrategy
+                                            "
+                                            :options="
+                                                evaluationStore.getDedupeOptions
+                                            "
+                                            valueKey="id"
+                                            labelKey="label"
+                                        />
+                                    </div>
+                                </div>
+                            </template>
+                        </Accordion>
 
-                <Tabs
-                    :tabs="[
-                        {
-                            id: 'model',
-                            label: 'Model',
-                            icon: 'tray',
-                        },
-                        {
-                            id: 'metric',
-                            label: 'Metric',
-                            icon: 'chart-line',
-                        },
-                        {
-                            id: 'testcase',
-                            label: 'Test Case',
-                            icon: 'list-checks',
-                        },
-                        {
-                            id: 'benchmark',
-                            label: 'Benchmark',
-                            icon: 'chart-line-up',
-                        },
-                    ]"
-                    :activeTab="activeTab"
-                    @update:activeTab="handleTabChange"
-                >
-                    <template v-slot:model-pane> <Model /> </template>
-                    <template v-slot:metric-pane> <Metric /> </template>
-                    <template #testcase-pane>
-                        <TestCase />
-                    </template>
-                    <template #benchmark-pane>
-                        <Benchmark />
-                    </template>
-                </Tabs>
+                        <!-- Load Dataset Button -->
+                        <div class="mt-4">
+                            <div class="d-flex justify-content-center">
+                                <Button
+                                    variant="primary"
+                                    @click="loadDataset"
+                                    :disabled="
+                                        evaluationStore.loading.evaluation ||
+                                        !isConfigurationValid
+                                    "
+                                    size="lg"
+                                >
+                                    <Icon name="play" class="me-2" />
+                                    Load Evaluation Dataset
+                                </Button>
+                            </div>
+                            <div
+                                v-if="!isConfigurationValid"
+                                class="text-center mt-2"
+                            >
+                                <small class="text-danger">
+                                    Please select a dimension and at least one
+                                    item from each relevant category
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div v-if="showResults" class="results-section mt-4">
+                    <EvaluationResults
+                        :results="evaluationStore.evaluation.data"
+                        :loading="evaluationStore.loading.evaluation"
+                        :group-by="selectedData.dimension"
+                        :dedupe-strategy="selectedData.dedupeStrategy"
+                        :selected-entities="selectedData"
+                        @reconfigure="reconfigure"
+                    />
+                </div>
             </div>
         </div>
     </div>
 </template>
-
 <script>
-import { useResultsStore } from "@stores/ResultsStore.js";
 import PageHeading from "@components/structure/PageHeading.vue";
-import ButtonGroup from "@components/interactables/ButtonGroup.vue";
-import Button from "@components/interactables/Button.vue";
-import Alert from "@components/interactables/Alert.vue";
 import Tabs from "@components/structure/Tabs.vue";
-import Card from "@components/structure/Card.vue";
-import Model from "./Model.vue";
-import Metric from "./Metric.vue";
-import TestCase from "./TestCase.vue";
-import Benchmark from "./Benchmark.vue";
-import html2pdf from "html2pdf.js";
+import ButtonGroup from "@components/interactables/ButtonGroup.vue";
+import Accordion from "@components/structure/Accordion.vue";
+import InputDropdown from "@components/interactables/inputs/InputDropdown.vue";
+import InputMultiSelect from "@components/interactables/inputs/InputMultiSelect.vue";
+import Button from "@components/interactables/Button.vue";
+import Icon from "@components/structure/Icon.vue";
+import EvaluationResults from "./EvaluationResults.vue";
+import { useEvaluationStore } from "@stores/EvaluationStore.js";
 
 export default {
+    name: "Evaluation",
     components: {
         PageHeading,
-        ButtonGroup,
-        Button,
-        Alert,
         Tabs,
-        Card,
-        Model,
-        Metric,
-        TestCase,
-        Benchmark,
+        ButtonGroup,
+        Accordion,
+        InputDropdown,
+        InputMultiSelect,
+        Button,
+        Icon,
+        EvaluationResults,
     },
     data() {
         return {
-            activeTab: "model",
+            selectedData: {
+                model: [],
+                metric: [],
+                test_case: [],
+                benchmark: [],
+                prompt: [],
+                dimension: null,
+                dedupeStrategy: "latest",
+            },
+            showResults: false,
         };
     },
-    props: {
-        models: {
-            type: Array,
-            default: () => [],
-        },
-        metrics: {
-            type: Array,
-            default: () => [],
-        },
-        testCases: {
-            type: Array,
-            default: () => [],
-        },
-        benchmarks: {
-            type: Array,
-            default: () => [],
-        },
-    },
     computed: {
-        resultsStore() {
-            return useResultsStore();
+        evaluationStore() {
+            return useEvaluationStore();
+        },
+        isConfigurationValid() {
+            return (
+                this.selectedData.dimension &&
+                this.selectedData.model.length > 0 &&
+                this.selectedData.metric.length > 0 &&
+                this.selectedData.test_case.length > 0 &&
+                this.selectedData.benchmark.length > 0 &&
+                this.selectedData.prompt.length > 0
+            );
         },
     },
-    mounted() {
-        // Initialize store with server data on mount
-        this.resultsStore.initialize({
-            models: this.models,
-            metrics: this.metrics,
-            testCases: this.testCases,
-            benchmarks: this.benchmarks,
-        });
-
-        // Set default deduplication strategy if not already set
-        if (!this.resultsStore.deduplicationStrategy) {
-            this.resultsStore.deduplicationStrategy = "latest";
-        }
+    watch: {
+        "selectedData.dimension"(newDimension, oldDimension) {
+            if (newDimension && newDimension !== oldDimension) {
+                this.loadDataForDimension(newDimension);
+            }
+        },
+    },
+    async mounted() {
+        // Load all data on component mount
+        await this.evaluationStore.loadAllData();
     },
     methods: {
-        handleTabChange(tabId) {
-            this.resultsStore.evaluationData = undefined;
-            this.activeTab = tabId;
+        async loadDataForDimension(dimension) {
+            await this.evaluationStore.loadDataForDimension(dimension);
         },
-        handleDeduplicationChange() {
-            // Clear current evaluation data to force re-fetch with new strategy
-            this.resultsStore.evaluationData = undefined;
-        },
-        getDeduplicationTooltip() {
-            const tooltips = {
-                latest: "Uses results from the most recent benchmark when duplicates exist",
-                all: "Shows all results including duplicates from multiple benchmarks",
-                average:
-                    "Creates averaged scores from duplicate results across benchmarks",
+        async loadDataset() {
+            if (!this.isConfigurationValid) return;
+
+            const params = {
+                group: this.selectedData.dimension,
+                dedupe: this.selectedData.dedupeStrategy,
             };
-            return tooltips[this.resultsStore.deduplicationStrategy] || "";
-        },
-        getFilename() {
-            const now = new Date();
-            const timestamp =
-                now.toISOString().slice(0, 10).replace(/-/g, "") +
-                "_" +
-                now.toTimeString().slice(0, 8).replace(/:/g, "");
-            return `${timestamp}_LLMevalJudge.pdf`;
-        },
-        printResults() {
-            if (!this.activeTab) {
-                this.activeTab = "model";
+
+            // Add selected IDs to parameters
+            if (this.selectedData.model.length > 0) {
+                params.model = this.selectedData.model.join("-");
+            }
+            if (this.selectedData.metric.length > 0) {
+                params.metric = this.selectedData.metric.join("-");
+            }
+            if (this.selectedData.test_case.length > 0) {
+                params.test_case = this.selectedData.test_case.join("-");
+            }
+            if (this.selectedData.benchmark.length > 0) {
+                params.benchmark = this.selectedData.benchmark.join("-");
+            }
+            if (this.selectedData.prompt.length > 0) {
+                params.prompt = this.selectedData.prompt.join("-");
             }
 
-            const printableId = `printable-${this.activeTab}`;
-            const element = document.getElementById(printableId);
+            await this.evaluationStore.loadEvaluation(params);
 
-            if (!element) {
-                console.error(
-                    `Printable element with id "${printableId}" not found`
-                );
-                return;
+            if (this.evaluationStore.isEvaluationValid) {
+                this.showResults = true;
             }
-
-            const options = {
-                margin: 0.5,
-                filename: this.getFilename(),
-                image: { type: "jpeg", quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
-            };
-            html2pdf().set(options).from(element).save();
+        },
+        reconfigure() {
+            this.showResults = false;
+            this.evaluationStore.resetEvaluation();
         },
     },
 };
 </script>
+
+<style scoped>
+.loading-state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #e5e7eb;
+    border-top: 2px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Make multiselect components fill width */
+:deep(.multiselect-container) {
+    width: 100%;
+}
+
+:deep(.selected-tag) {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Better responsive handling for long prompt labels */
+:deep(.option-label) {
+    word-break: break-word;
+    line-height: 1.4;
+    padding: 2px 0;
+}
+
+/* Accordion content spacing */
+:deep(.accordion-content) {
+    padding: 20px;
+}
+
+:deep(.accordion-content p) {
+    margin-bottom: 15px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Configuration section styling */
+.configuration-section {
+    transition: all 0.3s ease;
+}
+
+.configuration-section.minimized {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+.minimized-header {
+    padding: 15px 20px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.minimized-header:hover {
+    background-color: #f1f5f9;
+}
+
+.configuration-content {
+    transition: opacity 0.3s ease;
+}
+
+.results-section {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Button styling */
+.btn-lg {
+    padding: 12px 32px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Form styling */
+.form-label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+</style>
