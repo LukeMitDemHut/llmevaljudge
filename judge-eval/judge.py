@@ -39,7 +39,7 @@ class Judge(DeepEvalBaseLLM):
                                    })
         
         eval_logger.decision("judge", "Making evaluation request to judge model", {
-            "prompt_length": len(prompt),
+            "evaluation_prompt": prompt,
             "model": self.model_name,
             "endpoint": f"{self.api_base}/chat/completions"
         })
