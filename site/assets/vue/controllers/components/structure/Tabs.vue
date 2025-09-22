@@ -1,10 +1,14 @@
 <template>
     <ul
-        class="nav mb-4 border-bottom border-2"
+        class="nav mb-4 border-bottom border-2 flex-nowrap overflow-auto hide-scrollbar"
         id="settingsTabs"
         role="tablist"
     >
-        <li v-for="tab in tabs" class="nav-item" role="presentation">
+        <li
+            v-for="tab in tabs"
+            class="nav-item text-nowrap"
+            role="presentation"
+        >
             <button
                 class="nav-link border-0 fw-medium px-3 py-3 position-relative tab-button"
                 :class="{
@@ -143,5 +147,13 @@ export default {
     width: 8px;
     height: 8px;
     border-radius: 50%;
+}
+
+.hide-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera*/
 }
 </style>

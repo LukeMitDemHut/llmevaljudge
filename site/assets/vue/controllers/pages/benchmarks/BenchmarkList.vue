@@ -164,6 +164,16 @@
                                     }}</span>
                                 </div>
                             </div>
+                            <div
+                                v-if="benchmark.finishedAt"
+                                class="mt-2 pt-2 border-top text-end"
+                            >
+                                <a
+                                    :href="analysisRoute(benchmark.id)"
+                                    class="btn btn-sm btn-primary"
+                                    >Analyse Results</a
+                                >
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -194,6 +204,11 @@ export default {
         },
     },
     emits: ["delete", "edit", "start", "start-missing", "view-results"],
+    computed: {
+        analysisRoute() {
+            return (benchmarkId) => `/analysis/${benchmarkId}`;
+        },
+    },
     methods: {
         getBenchmarkStatus(benchmark) {
             if (!benchmark.startedAt) return "not_started";
