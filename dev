@@ -68,6 +68,8 @@ case "$1" in
         ./dev up
         ./dev install
         ./dev console doctrine:schema:update --force
+        ./dev up # again because if messenger can now properly start
+        ./dev build
         ;;
     *)
         docker exec -it $CONTAINER "$@"
