@@ -60,7 +60,7 @@
                         :key="`${model.id}-pane`"
                         v-slot:[`model-${model.id}-pane`]
                     >
-                        <ModelDataDisplay :data="model" />
+                        <ModelDataDisplay :data="model" :allModels="models" />
                     </template>
                 </Tabs>
 

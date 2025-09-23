@@ -68,6 +68,8 @@
         <MetricDataDisplay
             :data="metricData.data"
             :title="`Metric: ${metricData.name}`"
+            :comparisonData="getMetricComparisonData(metricData.id)"
+            :currentModelId="data.id"
         />
     </div>
 </template>
@@ -89,6 +91,10 @@ export default {
         data: {
             type: Object,
             required: true,
+        },
+        allModels: {
+            type: Array,
+            default: () => [],
         },
     },
     data() {
@@ -286,6 +292,29 @@ export default {
             };
         },
     },
-    methods: {},
+    methods: {
+        getMetricComparisonData(metricId) {
+            if (!this.allModels.length) return null;
+
+            // Find the same metric across all models
+            const comparisonData = this.allModels
+                .map((model) => {
+                    const metric = model.perMetric?.find(
+                        (m) => m.id === metricId
+                    );
+                    return {
+                        modelId: model.id,
+                        modelName: model.name,
+                        avgScore: metric?.data?.avgScore || 0,
+                        minScore: metric?.data?.minScore || 0,
+                        maxScore: metric?.data?.maxScore || 0,
+                        totalDataPoints: metric?.data?.totalDataPoints || 0,
+                    };
+                })
+                .filter((item) => item.totalDataPoints > 0); // Only include models that have data for this metric
+
+            return comparisonData;
+        },
+    },
 };
 </script>
