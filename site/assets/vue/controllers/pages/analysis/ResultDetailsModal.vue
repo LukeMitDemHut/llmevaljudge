@@ -95,6 +95,20 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted"
+                            >Actual Output</label
+                        >
+                        <div
+                            class="form-control-plaintext bg-light rounded p-3"
+                            style="max-height: 200px; overflow-y: auto"
+                        >
+                            <pre class="mb-0 text-wrap">{{
+                                resultData.actualOutput
+                            }}</pre>
+                        </div>
+                    </div>
+
                     <div class="mb-3" v-if="resultData.prompt.expectedOutput">
                         <label class="form-label fw-bold text-muted"
                             >Expected Output</label
@@ -121,118 +135,6 @@
                                 truncateText(resultData.prompt.context, 1000)
                             }}</pre>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Evaluation Results -->
-            <div class="card mb-4" v-if="resultData.evaluation_results">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">
-                        <Icon name="check-circle" class="me-2" />
-                        Evaluation Results
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="evaluation-summary mb-3">
-                        <div class="row g-3">
-                            <div class="col-sm-4">
-                                <div class="text-center p-3 bg-light rounded">
-                                    <div
-                                        class="h4 mb-1"
-                                        :class="
-                                            getScoreTextClass(resultData.score)
-                                        "
-                                    >
-                                        {{ formatScore(resultData.score) }}
-                                    </div>
-                                    <small class="text-muted"
-                                        >Final Score</small
-                                    >
-                                </div>
-                            </div>
-                            <div
-                                class="col-sm-4"
-                                v-if="resultData.evaluation_results.model"
-                            >
-                                <div class="text-center p-3 bg-light rounded">
-                                    <div class="h6 mb-1 text-primary">
-                                        {{
-                                            resultData.evaluation_results.model
-                                                .name
-                                        }}
-                                    </div>
-                                    <small class="text-muted">Model Used</small>
-                                </div>
-                            </div>
-                            <div
-                                class="col-sm-4"
-                                v-if="resultData.evaluation_results.metric"
-                            >
-                                <div class="text-center p-3 bg-light rounded">
-                                    <div class="h6 mb-1 text-success">
-                                        {{
-                                            resultData.evaluation_results.metric
-                                                .name
-                                        }}
-                                    </div>
-                                    <small class="text-muted">Metric</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Reasoning -->
-                    <div
-                        v-if="resultData.evaluation_results.reason"
-                        class="mb-3"
-                    >
-                        <label class="form-label fw-bold text-muted"
-                            >Evaluation Reasoning</label
-                        >
-                        <div class="alert alert-info">
-                            <Icon name="lightbulb" class="me-2" />
-                            {{ resultData.evaluation_results.reason }}
-                        </div>
-                    </div>
-
-                    <!-- LLM Response -->
-                    <div
-                        v-if="resultData.evaluation_results.llm_response"
-                        class="mb-3"
-                    >
-                        <label class="form-label fw-bold text-muted"
-                            >LLM Response</label
-                        >
-                        <div
-                            class="form-control-plaintext bg-light rounded p-3"
-                            style="max-height: 300px; overflow-y: auto"
-                        >
-                            <pre class="mb-0 text-wrap">{{
-                                truncateText(
-                                    resultData.evaluation_results.llm_response,
-                                    2000
-                                )
-                            }}</pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actual Output -->
-            <div class="card mb-4" v-if="actualOutput">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">
-                        <Icon name="file-text" class="me-2" />
-                        Actual Output
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div
-                        class="form-control-plaintext bg-light rounded p-3"
-                        style="max-height: 400px; overflow-y: auto"
-                    >
-                        <pre class="mb-0 text-wrap">{{ actualOutput }}</pre>
                     </div>
                 </div>
             </div>
@@ -270,7 +172,7 @@
                         style="max-height: 400px; overflow-y: auto"
                     >
                         <div
-                            v-for="(log, index) in executionLogs.slice(0, 50)"
+                            v-for="(log, index) in executionLogs"
                             :key="index"
                             class="log-entry border-bottom p-3"
                             :class="getLogLevelClass(log.level)"
@@ -291,7 +193,9 @@
                                         }}</span>
                                     </div>
                                     <div class="log-message">
-                                        {{ log.message }}
+                                        <pre class="log-message-content">{{
+                                            log.message
+                                        }}</pre>
                                     </div>
                                     <div
                                         v-if="
@@ -300,25 +204,18 @@
                                         "
                                         class="log-data mt-2"
                                     >
-                                        <small class="text-muted"
-                                            >Data:
-                                            {{ formatLogData(log.data) }}</small
-                                        >
+                                        <small class="text-muted">
+                                            <strong>Data:</strong>
+                                            <div class="log-data-content">
+                                                {{ formatLogData(log.data) }}
+                                            </div>
+                                        </small>
                                     </div>
                                 </div>
                                 <small class="text-muted ms-2">{{
                                     formatTimestamp(log.timestamp)
                                 }}</small>
                             </div>
-                        </div>
-                        <div
-                            v-if="executionLogs.length > 50"
-                            class="text-center p-3 text-muted"
-                        >
-                            <small
-                                >Showing first 50 of
-                                {{ executionLogs.length }} log entries</small
-                            >
                         </div>
                     </div>
                 </div>
@@ -361,27 +258,6 @@ export default {
                 console.error("Error parsing execution logs:", e);
                 return [];
             }
-        },
-
-        actualOutput() {
-            // Try to find actual output from logs or evaluation results
-            if (this.resultData?.evaluation_results?.llm_response) {
-                return this.resultData.evaluation_results.llm_response;
-            }
-
-            // Look for actual output in logs
-            const llmResponseLog = this.executionLogs.find(
-                (log) =>
-                    log.component === "llm_requestor" &&
-                    log.message === "LLM Response" &&
-                    log.data?.response
-            );
-
-            if (llmResponseLog) {
-                return llmResponseLog.data.response;
-            }
-
-            return null;
         },
     },
     async mounted() {
@@ -464,14 +340,11 @@ export default {
         formatLogData(data) {
             if (!data || typeof data !== "object") return "";
 
-            // Format key data points for display
-            const keys = Object.keys(data).slice(0, 3); // Show first 3 keys
-            const formatted = keys.map(
-                (key) => `${key}: ${String(data[key]).substring(0, 50)}`
-            );
+            const keys = Object.keys(data).slice(0, 5); // Show first 5 keys
+            const formatted = keys.map((key) => `${key}: ${String(data[key])}`);
 
-            if (Object.keys(data).length > 3) {
-                formatted.push("...");
+            if (Object.keys(data).length > 5) {
+                formatted.push(`... and ${Object.keys(data).length - 5} more`);
             }
 
             return formatted.join(", ");
@@ -509,10 +382,37 @@ export default {
     line-height: 1.4;
 }
 
+.log-message-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 .log-data {
     font-family: monospace;
     font-size: 0.8rem;
     color: #6c757d;
+}
+
+.log-data-content {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: 0.25rem;
+    padding: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 0.25rem;
+    font-family: "Courier New", Courier, monospace;
 }
 
 .execution-logs {

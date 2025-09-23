@@ -36,6 +36,9 @@
                         type="bar"
                         :data="comparisonChartData"
                         :options="comparisonChartOptions"
+                        :height="300"
+                        :responsive="true"
+                        :maintain-aspect-ratio="false"
                     />
                 </div>
             </div>

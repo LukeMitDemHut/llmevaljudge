@@ -28,6 +28,9 @@
                                     type="bar"
                                     :data="modelComparisonChartData"
                                     :options="barChartOptions"
+                                    :height="400"
+                                    :responsive="true"
+                                    :maintain-aspect-ratio="false"
                                 />
                             </Card>
                         </div>
@@ -43,6 +46,9 @@
                                     type="radar"
                                     :data="overallRadarChartData"
                                     :options="radarChartOptions"
+                                    :height="400"
+                                    :responsive="true"
+                                    :maintain-aspect-ratio="false"
                                 />
                             </Card>
                         </div>

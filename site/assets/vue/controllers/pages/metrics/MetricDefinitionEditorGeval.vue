@@ -53,6 +53,7 @@
                             <InputText
                                 v-model="modelValue.steps[index]"
                                 :placeholder="`Step ${index + 1}...`"
+                                :isTextarea="true"
                             />
                         </div>
                         <Button
