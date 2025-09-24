@@ -6,6 +6,7 @@
         label="Task"
         required
         ref="taskInput"
+        :isTextarea="true"
     />
 
     <div class="row mt-3">
