@@ -1,3 +1,9 @@
+> ⚠️ **Early Beta Notice**
+>
+> This platform is currently in **early beta** and may contain bugs. Features, APIs, and architecture are subject to change. It is intended for **local testing, experimentation, and research use only**. Not production-ready. Use with caution and do not expose to the public internet.
+> Contribution welcome!
+
+
 # LLM Evaluation Platform
 
 A comprehensive platform for evaluating Large Language Models (LLMs) using LLM-as-a-Judge methodology. This platform enables sophisticated evaluation of model outputs through custom criteria, advanced reasoning metrics, and real-time web-augmented verification.
