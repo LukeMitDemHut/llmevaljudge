@@ -62,7 +62,7 @@ services:
     build: .
     restart: always
     deploy:
-      replicas: 6 # Run 6 worker instances
+      replicas: 1 # Run 6 worker instances
     command:
       [
         "php",

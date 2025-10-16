@@ -45,8 +45,8 @@ class BenchmarkRepository extends ServiceEntityRepository
             'minScore' => (float) $result['minScore'],
             'maxScore' => (float) $result['maxScore'],
             'totalDataPoints' => (int) $result['totalDataPoints'],
-            'bestResults' => $this->getBestResults($benchmark, 5, $model, $metric),
-            'worstResults' => $this->getWorstResults($benchmark, 5, $model, $metric),
+            'bestResults' => $this->getBestResults($benchmark, 10, $model, $metric),
+            'worstResults' => $this->getWorstResults($benchmark, 10, $model, $metric),
         ];
     }
 

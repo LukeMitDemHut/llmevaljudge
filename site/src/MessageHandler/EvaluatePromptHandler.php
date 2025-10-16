@@ -81,7 +81,7 @@ final class EvaluatePromptHandler
             // Call Python evaluation service
             $response = $this->httpClient->request('POST', 'http://judge_eval:5000/', [
                 'json' => $evaluationData,
-                'timeout' => 120 // 2 minutes timeout for evaluation
+                'timeout' => 1200 // 20 minutes timeout for evaluation (allow deep reasoning)
             ]);
 
             $result = $response->toArray();

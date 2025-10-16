@@ -181,5 +181,6 @@ export default {
 .chart-container canvas {
     max-width: 100%;
     height: auto !important;
+    min-height: 50vh;
 }
 </style>

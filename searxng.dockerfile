@@ -36,7 +36,7 @@ RUN python3 -m venv "/usr/local/searxng/searx-pyenv" && \
 # Install SearXNG dependencies
 RUN . /usr/local/searxng/searx-pyenv/bin/activate && \
     pip install -U pip setuptools wheel pyyaml && \
-    pip install lxml && \
+    pip install lxml msgspec && \
     cd "/usr/local/searxng/searxng-src" && \
     pip install --use-pep517 --no-build-isolation -e .
 
