@@ -824,12 +824,15 @@ Your evaluation:"""
             
         lines = response.strip().split('\n')
         score = None
-        reason = ""
+        reason_lines = []
+        capturing_reason = False
         
         for line in lines:
-            line = line.strip()
-            if line.startswith('SCORE:'):
-                score_str = line.replace('SCORE:', '').strip()
+            line_stripped = line.strip()
+            
+            # Check for SCORE line
+            if line_stripped.startswith('SCORE:'):
+                score_str = line_stripped.replace('SCORE:', '').strip()
                 try:
                     score = float(score_str)
                     # Ensure score is in valid range
@@ -837,8 +840,22 @@ Your evaluation:"""
                 except ValueError:
                     eval_logger.debug("tale_metric", f"Could not parse score: {score_str}")
                     # Don't set score to 0.0 here, let it remain None to trigger error below
-            elif line.startswith('REASONING:'):
-                reason = line.replace('REASONING:', '').strip()
+                capturing_reason = False
+                
+            # Check for REASONING line - start capturing everything after this
+            elif line_stripped.startswith('REASONING:'):
+                # Get the text on the same line as REASONING:
+                first_reason_part = line_stripped.replace('REASONING:', '').strip()
+                if first_reason_part:
+                    reason_lines.append(first_reason_part)
+                capturing_reason = True
+                
+            # If we're capturing reasoning, add all subsequent lines
+            elif capturing_reason and line_stripped:
+                reason_lines.append(line_stripped)
+        
+        # Join all reasoning lines
+        reason = '\n'.join(reason_lines) if reason_lines else ""
         
         # If no explicit reasoning found, use the whole response
         if not reason:
