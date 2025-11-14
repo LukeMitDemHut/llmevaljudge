@@ -86,10 +86,10 @@
                             >Input</label
                         >
                         <div
-                            class="form-control-plaintext bg-light rounded p-3"
+                            class="form-control-plaintext bg-light rounded p-3 preserved-text"
                             style="max-height: 200px; overflow-y: auto"
                         >
-                            <pre class="mb-0 text-wrap">{{
+                            <pre class="mb-0">{{
                                 resultData.prompt.input
                             }}</pre>
                         </div>
@@ -100,10 +100,10 @@
                             >Actual Output</label
                         >
                         <div
-                            class="form-control-plaintext bg-light rounded p-3"
+                            class="form-control-plaintext bg-light rounded p-3 preserved-text"
                             style="max-height: 200px; overflow-y: auto"
                         >
-                            <pre class="mb-0 text-wrap">{{
+                            <pre class="mb-0">{{
                                 resultData.actualOutput
                             }}</pre>
                         </div>
@@ -114,10 +114,10 @@
                             >Expected Output</label
                         >
                         <div
-                            class="form-control-plaintext bg-light rounded p-3"
+                            class="form-control-plaintext bg-light rounded p-3 preserved-text"
                             style="max-height: 200px; overflow-y: auto"
                         >
-                            <pre class="mb-0 text-wrap">{{
+                            <pre class="mb-0">{{
                                 resultData.prompt.expectedOutput
                             }}</pre>
                         </div>
@@ -128,11 +128,11 @@
                             >Context</label
                         >
                         <div
-                            class="form-control-plaintext bg-light rounded p-3"
+                            class="form-control-plaintext bg-light rounded p-3 preserved-text"
                             style="max-height: 200px; overflow-y: auto"
                         >
-                            <pre class="mb-0 text-wrap">{{
-                                truncateText(resultData.prompt.context, 1000)
+                            <pre class="mb-0">{{
+                                resultData.prompt.context
                             }}</pre>
                         </div>
                     </div>
@@ -349,12 +349,6 @@ export default {
 
             return formatted.join(", ");
         },
-
-        truncateText(text, maxLength = 500) {
-            if (!text) return "";
-            if (text.length <= maxLength) return text;
-            return text.substring(0, maxLength) + "...";
-        },
     },
 };
 </script>
@@ -426,6 +420,12 @@ pre {
     font-family: "Courier New", Courier, monospace;
     font-size: 0.875rem;
     line-height: 1.4;
+}
+
+.preserved-text pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .evaluation-summary .h4 {
