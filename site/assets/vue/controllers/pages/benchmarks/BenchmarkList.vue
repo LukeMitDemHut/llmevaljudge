@@ -94,6 +94,15 @@
                                     getMetricCount(benchmark)
                                 }}</span>
                             </div>
+                            <div
+                                v-if="benchmark.repeatCount > 1"
+                                class="d-flex justify-content-between mb-1"
+                            >
+                                <span>Repeats:</span>
+                                <span class="fw-bold"
+                                    >{{ benchmark.repeatCount }}×</span
+                                >
+                            </div>
 
                             <div
                                 v-if="benchmark.startedAt"
@@ -327,7 +336,7 @@ export default {
             const diffMs = now - start;
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
             const diffMins = Math.floor(
-                (diffMs % (1000 * 60 * 60)) / (1000 * 60)
+                (diffMs % (1000 * 60 * 60)) / (1000 * 60),
             );
 
             if (diffHours > 0) {

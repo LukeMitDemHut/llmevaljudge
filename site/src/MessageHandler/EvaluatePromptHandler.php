@@ -47,9 +47,9 @@ final class EvaluatePromptHandler
         $maxRetries = 2;
 
         try {
-            // Check if a result already exists for this prompt/metric/model/benchmark combination
+            // Check if a result already exists for this prompt/metric/model/benchmark/runIndex combination
             $existingResult = $this->entityManager->getRepository(Result::class)
-                ->findByPromptMetricModelBenchmark($prompt, $metric, $model, $benchmark);
+                ->findByPromptMetricModelBenchmarkAndRun($prompt, $metric, $model, $benchmark, $message->runIndex);
 
             // Prepare data for Python evaluation service
             $evaluationData = [
@@ -75,7 +75,8 @@ final class EvaluatePromptHandler
                         'key' => $metric->getRatingModel()->getProvider()->getApiKey()
                     ]
                 ],
-                'system_prompt' => $this->getSystemPrompt($prompt)
+                'system_prompt' => $this->getSystemPrompt($prompt),
+                'run_index' => $message->runIndex
             ];
 
             // Call Python evaluation service
@@ -92,6 +93,7 @@ final class EvaluatePromptHandler
             $resultEntity->setMetric($metric);
             $resultEntity->setModel($model);
             $resultEntity->setBenchmark($benchmark);
+            $resultEntity->setRunIndex($message->runIndex);
             $resultEntity->setActualOutput($result['actual_output'] ?? '');
             $resultEntity->setScore($result['score'] ?? 0.0);
             $resultEntity->setReason($result['reason'] ?? '');
@@ -133,6 +135,7 @@ final class EvaluatePromptHandler
                     $message->metricId,
                     $message->modelId,
                     $message->benchmarkId,
+                    $message->runIndex,
                     $message->attempt + 1
                 );
 
@@ -160,12 +163,12 @@ final class EvaluatePromptHandler
                 'error' => $e->getMessage()
             ]);
 
-            // Add error to benchmark
-            $benchmark->addError($errorMessage);
+            // Add error to benchmark atomically (avoid race condition with concurrent workers)
+            $this->addBenchmarkErrorAtomic($benchmark, $errorMessage);
 
             // Check for existing result and remove it if it exists for this benchmark
             $existingResult = $this->entityManager->getRepository(Result::class)
-                ->findByPromptMetricModelBenchmark($prompt, $metric, $model, $benchmark);
+                ->findByPromptMetricModelBenchmarkAndRun($prompt, $metric, $model, $benchmark, $message->runIndex);
 
             if ($existingResult) {
                 $this->entityManager->remove($existingResult);
@@ -174,14 +177,19 @@ final class EvaluatePromptHandler
                     'metricId' => $metric->getId(),
                     'modelId' => $model->getId()
                 ]);
+                $this->entityManager->flush();
             }
 
-            $this->entityManager->flush();
+            // Update progress even on failure so benchmark can finish
+            $this->updateBenchmarkProgress($benchmark);
         }
     }
 
     private function updateBenchmarkProgress(Benchmark $benchmark): void
     {
+        // Refresh the entity to get the latest state from DB
+        $this->entityManager->refresh($benchmark);
+
         // Get total expected results for this benchmark
         $totalExpected = $this->getTotalExpectedResults($benchmark);
 
@@ -189,17 +197,22 @@ final class EvaluatePromptHandler
         $completed = $this->entityManager->getRepository(Result::class)
             ->count(['benchmark' => $benchmark]);
 
+        // Count errors atomically from DB to avoid race conditions
+        $errorCount = $this->getBenchmarkErrorCount($benchmark);
+        $totalProcessed = $completed + $errorCount;
+
         if ($totalExpected > 0) {
-            $progress = ($completed / $totalExpected) * 100;
+            $progress = (int) round(($totalProcessed / $totalExpected) * 100);
             $benchmark->setProgress(min(100, $progress));
 
-            // Check if benchmark is complete
-            if ($completed >= $totalExpected) {
+            // Check if benchmark is complete (all dispatched work is done)
+            if ($totalProcessed >= $totalExpected) {
                 $benchmark->setProgress(100);
                 $benchmark->setFinishedAt(new \DateTimeImmutable());
                 $this->logger->info('Benchmark completed', [
                     'benchmarkId' => $benchmark->getId(),
-                    'totalResults' => $completed
+                    'totalResults' => $completed,
+                    'totalErrors' => $errorCount
                 ]);
             }
 
@@ -207,10 +220,45 @@ final class EvaluatePromptHandler
         }
     }
 
+    /**
+     * Atomically append an error to the benchmark's errors JSON array using raw SQL.
+     * This avoids the read-modify-write race condition when multiple workers add errors concurrently.
+     */
+    private function addBenchmarkErrorAtomic(Benchmark $benchmark, string $errorMessage): void
+    {
+        $conn = $this->entityManager->getConnection();
+        $errorEntry = json_encode([
+            'message' => $errorMessage,
+            'timestamp' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
+        ]);
+
+        // Use JSON_MERGE_PRESERVE which works in MariaDB (CAST AS JSON is MySQL-only)
+        $conn->executeStatement(
+            'UPDATE benchmark SET errors = JSON_MERGE_PRESERVE(COALESCE(errors, \'[]\'), JSON_ARRAY(JSON_EXTRACT(:error, \'$\'))) WHERE id = :id',
+            ['error' => $errorEntry, 'id' => $benchmark->getId()]
+        );
+
+        // Refresh entity so subsequent reads see the updated errors
+        $this->entityManager->refresh($benchmark);
+    }
+
+    /**
+     * Count errors directly from DB to avoid stale in-memory data.
+     */
+    private function getBenchmarkErrorCount(Benchmark $benchmark): int
+    {
+        $conn = $this->entityManager->getConnection();
+        $result = $conn->executeQuery(
+            'SELECT CASE WHEN errors IS NULL THEN 0 ELSE JSON_LENGTH(errors) END as cnt FROM benchmark WHERE id = :id',
+            ['id' => $benchmark->getId()]
+        );
+        return (int) $result->fetchOne();
+    }
+
     private function getTotalExpectedResults(Benchmark $benchmark): int
     {
-        // TODO: This could be cached or calculated more efficiently
         $count = 0;
+        $repeatCount = $benchmark->getRepeatCount();
         foreach ($benchmark->getTestCases() as $testCase) {
             foreach ($testCase->getPrompts() as $prompt) {
                 foreach ($benchmark->getMetrics() as $metric) {
@@ -238,7 +286,7 @@ final class EvaluatePromptHandler
                     }
 
                     if ($satisfied) {
-                        $count += count($benchmark->getModels());
+                        $count += count($benchmark->getModels()) * $repeatCount;
                     }
                 }
             }

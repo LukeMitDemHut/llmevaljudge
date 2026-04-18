@@ -657,6 +657,83 @@
                                 <strong>Performance Note:</strong> Benchmark runtime depends on the number of models ×
                                 test cases × metrics. Start with smaller benchmarks to test your setup.
                             </div>
+
+                            <h5 class="text-primary mb-3 mt-4">Understanding Repeat Evaluations</h5>
+
+                            <p>Benchmarks support <strong>multiple independent evaluation runs</strong> against the same
+                                prompts to measure evaluation reliability and reduce statistical noise.</p>
+
+                            <h6 class="text-primary mb-2">How Repeats Work:</h6>
+                            <div class="card border-info mb-3">
+                                <div class="card-body">
+                                    <p class="mb-2"><strong>Overview:</strong> Instead of evaluating each (prompt,
+                                        model, metric) combination once, you can run it N times to capture variance in
+                                        the evaluation process.</p>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2">Model Response (Cached)</h6>
+                                            <ul class="small mb-0">
+                                                <li>The tested model generates <strong>one response per
+                                                        prompt/model</strong></li>
+                                                <li>This response is <strong>cached</strong> for 24 hours</li>
+                                                <li><strong>All repeats</strong> evaluate the <strong>same</strong>
+                                                    model output</li>
+                                                <li>All metrics see <strong>identical</strong> responses (cross-metric
+                                                    fairness)</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-info mb-2">Judge Evaluation (Fresh Each Time)</h6>
+                                            <ul class="small mb-0">
+                                                <li>The judge LLM evaluates <strong>independently each run</strong></li>
+                                                <li><strong>No caching</strong> — fresh judgment each time</li>
+                                                <li>Scores may vary slightly (judge non-determinism)</li>
+                                                <li>Averaged scores are more reliable than single evaluations</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="text-primary mb-2">What Variance Is Being Measured?</h6>
+                            <div class="alert alert-warning">
+                                <i class="ph ph-warning me-2"></i>
+                                <strong>Important:</strong> With repeat evaluations, you measure <strong>judge
+                                    consistency</strong>, not model consistency. Each repeat uses the <strong>same model
+                                    output</strong>, so score variance reflects how reliably your judge evaluates that
+                                output, not how the model varies across runs.
+                            </div>
+
+                            <h6 class="text-primary mb-2">Benefits:</h6>
+                            <ul class="mb-3">
+                                <li><strong>Reliable Scoring:</strong> Judge variance is a known issue in LLM-as-Judge
+                                    evaluation. Averaging N judge evaluations gives more stable, defensible scores</li>
+                                <li><strong>Methodology Credibility:</strong> Demonstrating judge consistency
+                                    strengthens your paper's evaluation methodology</li>
+                                <li><strong>Fair Cross-Metric Comparison:</strong> All metrics evaluate the identical
+                                    model response, enabling valid comparisons</li>
+                                <li><strong>Cost Efficiency:</strong> Only pay for one model response per (prompt,
+                                    model) pair, then judge N times. Much cheaper than re-generating responses</li>
+                            </ul>
+
+                            <h6 class="text-primary mb-2">Configuration Example:</h6>
+                            <p class="small text-muted mb-3"><strong>Benchmark:</strong> 10 prompts × 3 metrics × 2
+                                models × 5 repeats<br>
+                                <strong>API Calls:</strong> (10 × 2 = 20 model calls) + (10 × 3 × 2 × 5 = 300 judge
+                                calls) = 320 total<br>
+                                <strong>Results Stored:</strong> 300 Result rows (one per metric × model × repeat)
+                            </p>
+
+                            <h6 class="text-primary mb-2">Viewing Repeat Results:</h6>
+                            <ul class="mb-0">
+                                <li><strong>Aggregated View:</strong> Shows average, min, and max scores for each
+                                    (prompt, metric, model) group</li>
+                                <li><strong>Individual Runs:</strong> Expand to see each evaluation run's score,
+                                    reasoning, and logs</li>
+                                <li><strong>Statistical Summary:</strong> Analysis page includes variance, quartiles,
+                                    and outlier detection</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -934,6 +1011,87 @@
                                 <li><strong>Iterate analysis:</strong> Reconfigure with different groupings to explore
                                     various perspectives</li>
                             </ol>
+
+                            <h5 class="text-primary mb-3">Interpreting Repeat Evaluation Results</h5>
+
+                            <p>When benchmarks are configured with multiple repeats (e.g., "Run 5 times"), the results
+                                provide insights into evaluation stability:</p>
+
+                            <div class="card border-info mb-3">
+                                <div class="card-header bg-info text-white">
+                                    <strong>Score Variance Analysis (Judge Consistency)</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2"><strong>What the numbers mean:</strong></p>
+                                    <ul class="mb-3">
+                                        <li><strong>Tight variance (low std dev):</strong> The judge consistently scored
+                                            the model output similarly across runs. This indicates a reliable evaluation
+                                            for this prompt/model/metric combination.</li>
+                                        <li><strong>Wide variance (high std dev):</strong> The judge gave significantly
+                                            different scores for the identical model output. This suggests the
+                                            evaluation criteria may be ambiguous or the judge's reasoning is
+                                            inconsistent.</li>
+                                        <li><strong>Average score:</strong> The most reliable estimate of true
+                                            performance for this combination (averaging out judge non-determinism)</li>
+                                    </ul>
+                                    <p class="small text-muted mb-0"><strong>Example:</strong> If a model outputs a
+                                        response that scores [0.78, 0.82, 0.80, 0.81, 0.79], the average 0.80 is more
+                                        defensible than picking any single run.</p>
+                                </div>
+                            </div>
+
+                            <div class="card border-success mb-3">
+                                <div class="card-header bg-success text-white">
+                                    <strong>✅ Healthy Repeat Patterns</strong>
+                                </div>
+                                <div class="card-body small">
+                                    <ul class="mb-0">
+                                        <li><strong>Small variance within a run group:</strong> Judge is reliable — use
+                                            the average score</li>
+                                        <li><strong>Consistent patterns across prompts:</strong> Evaluation criteria are
+                                            well-defined</li>
+                                        <li><strong>Similar variance for all models:</strong> Fair evaluation across
+                                            different model types</li>
+                                        <li><strong>No systematic bias:</strong> Averages don't consistently drift up or
+                                            down</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="card border-warning mb-3">
+                                <div class="card-header bg-warning text-dark">
+                                    <strong>⚠️ Concerning Patterns</strong>
+                                </div>
+                                <div class="card-body small">
+                                    <ul class="mb-0">
+                                        <li><strong>Extreme variance (e.g., 0.2 to 0.9 for same output):</strong> Judge
+                                            scoring is unreliable. Consider refining metric criteria or judge prompt.
+                                        </li>
+                                        <li><strong>Systematic drift:</strong> Scores increasing or decreasing across
+                                            repeats suggests judge is influenced by previous results (though this
+                                            shouldn't happen with fresh calls).</li>
+                                        <li><strong>High outlier count:</strong> Occasional very different scores
+                                            indicate edge cases in evaluation logic</li>
+                                        <li><strong>Poor inter-metric agreement:</strong> Different metrics score the
+                                            same output vastly differently — may need to clarify what you're measuring
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <h6 class="text-primary mb-2">Using Repeats for Methodology Validation:</h6>
+                            <p class="small mb-3">For academic papers, repeat evaluations strengthen your methodology
+                                section:</p>
+                            <ul class="small mb-3">
+                                <li><strong>Report judge consistency:</strong> "We ran each evaluation 5 times and found
+                                    average variance of X, indicating reliability"</li>
+                                <li><strong>Show confidence intervals:</strong> Present scores as "0.82 ± 0.03" instead
+                                    of single values</li>
+                                <li><strong>Discuss outliers:</strong> Explain which prompt/model combinations
+                                    challenged the judge and why</li>
+                                <li><strong>Justify reproducibility:</strong> Same cached model output + multiple judge
+                                    runs proves your rankings are stable</li>
+                            </ul>
 
                             <div class="alert alert-info">
                                 <i class="ph ph-lightbulb me-2"></i>

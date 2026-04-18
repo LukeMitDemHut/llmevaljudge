@@ -52,6 +52,10 @@ class Result
     #[Groups(['api', 'results'])]
     private ?Benchmark $benchmark = null;
 
+    #[ORM\Column(type: Types::INTEGER, options: ['default' => 1])]
+    #[Groups(['api', 'results'])]
+    private int $runIndex = 1;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -149,6 +153,18 @@ class Result
     public function setBenchmark(?Benchmark $benchmark): static
     {
         $this->benchmark = $benchmark;
+
+        return $this;
+    }
+
+    public function getRunIndex(): int
+    {
+        return $this->runIndex;
+    }
+
+    public function setRunIndex(int $runIndex): static
+    {
+        $this->runIndex = $runIndex;
 
         return $this;
     }

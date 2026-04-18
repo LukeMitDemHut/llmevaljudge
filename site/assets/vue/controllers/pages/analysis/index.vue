@@ -52,6 +52,54 @@
                                 />
                             </Card>
                         </div>
+                        <div class="col-12 w-100">
+                            <Card>
+                                <template #header>
+                                    <h5 class="mb-0">
+                                        <Icon name="target" class="me-2" />
+                                        Metric Performance by Model
+                                    </h5>
+                                </template>
+                                <Chart
+                                    type="radar"
+                                    :data="metricPerModelRadarChartData"
+                                    :options="radarChartOptions"
+                                    :height="400"
+                                    :responsive="true"
+                                    :maintain-aspect-ratio="false"
+                                />
+                            </Card>
+                        </div>
+                        <div
+                            v-if="judgeConsistencyChartData"
+                            class="col-12 w-100"
+                        >
+                            <Card>
+                                <template #header>
+                                    <h5 class="mb-0">
+                                        <Icon name="refresh-cw" class="me-2" />
+                                        Judge Consistency Between Repeats
+                                    </h5>
+                                </template>
+                                <p class="text-muted small mb-3 px-3">
+                                    Distribution of sample standard deviations
+                                    (s, denominator n−1) of scores across
+                                    repeated runs. Each data point represents
+                                    the standard deviation of scores for one
+                                    prompt/model combination across all
+                                    configured runs. Lower values indicate more
+                                    consistent judge ratings.
+                                </p>
+                                <Chart
+                                    type="boxplot"
+                                    :data="judgeConsistencyChartData"
+                                    :options="boxplotChartOptions"
+                                    :height="400"
+                                    :responsive="true"
+                                    :maintain-aspect-ratio="false"
+                                />
+                            </Card>
+                        </div>
                     </div>
                 </div>
 
@@ -220,6 +268,63 @@ export default {
             };
         },
 
+        metricPerModelRadarChartData() {
+            if (!this.models.length) return null;
+
+            // Labels are model names (axes of the radar)
+            const labels = this.models.map((model) => model.name);
+
+            // Collect all unique metric names from the first model's perMetric
+            const metrics = this.models[0]?.perMetric || [];
+            if (!metrics.length) return null;
+
+            const metricColors = [
+                {
+                    border: "rgba(54, 162, 235, 1)",
+                },
+                {
+                    border: "rgba(255, 99, 132, 1)",
+                },
+                {
+                    border: "rgba(75, 192, 192, 1)",
+                },
+                {
+                    border: "rgba(255, 206, 86, 1)",
+                },
+                {
+                    border: "rgba(153, 102, 255, 1)",
+                },
+                {
+                    border: "rgba(255, 159, 64, 1)",
+                },
+            ];
+
+            const datasets = metrics.map((metric, idx) => {
+                const color = metricColors[idx % metricColors.length];
+                // For each metric, get the avgScore from each model's perMetric
+                const data = this.models.map((model) => {
+                    const m = model.perMetric?.find(
+                        (pm) => pm.id === metric.id,
+                    );
+                    return m ? m.data.avgScore : 0;
+                });
+
+                return {
+                    label: metric.name,
+                    data,
+                    fill: false,
+                    borderColor: color.border,
+                    pointBackgroundColor: color.border,
+                    pointBorderColor: "#fff",
+                    pointHoverBackgroundColor: "#fff",
+                    pointHoverBorderColor: color.border,
+                    borderWidth: 2,
+                };
+            });
+
+            return { labels, datasets };
+        },
+
         barChartOptions() {
             return {
                 responsive: true,
@@ -274,6 +379,91 @@ export default {
                         max: 1,
                         ticks: {
                             callback: (value) => this.formatScore(value),
+                        },
+                    },
+                },
+            };
+        },
+
+        judgeConsistencyChartData() {
+            const consistency = this.analysisData.judgeConsistency;
+            if (!consistency || !consistency.length) return null;
+
+            const labels = consistency.map((item) => item.name);
+
+            const boxplotColors = [
+                "rgba(54, 162, 235, 0.5)",
+                "rgba(255, 99, 132, 0.5)",
+                "rgba(75, 192, 192, 0.5)",
+                "rgba(153, 102, 255, 0.5)",
+            ];
+            const borderColors = [
+                "rgba(54, 162, 235, 1)",
+                "rgba(255, 99, 132, 1)",
+                "rgba(75, 192, 192, 1)",
+                "rgba(153, 102, 255, 1)",
+            ];
+
+            return {
+                labels,
+                datasets: [
+                    {
+                        label: "Score Sample Std. Dev. Across Runs",
+                        data: consistency.map((item) => item.stddevs),
+                        backgroundColor: consistency.map(
+                            (_, i) => boxplotColors[i % boxplotColors.length],
+                        ),
+                        borderColor: consistency.map(
+                            (_, i) => borderColors[i % borderColors.length],
+                        ),
+                        borderWidth: 2,
+                        outlierBackgroundColor: "rgba(0, 0, 0, 0.3)",
+                        outlierBorderColor: "rgba(0, 0, 0, 0.5)",
+                        outlierRadius: 3,
+                    },
+                ],
+            };
+        },
+
+        boxplotChartOptions() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false,
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const stats = context.parsed;
+                                if (!stats) return "";
+                                return [
+                                    `Min: ${this.formatScore(stats.min)}`,
+                                    `Q1: ${this.formatScore(stats.q1)}`,
+                                    `Median: ${this.formatScore(stats.median)}`,
+                                    `Q3: ${this.formatScore(stats.q3)}`,
+                                    `Max: ${this.formatScore(stats.max)}`,
+                                ];
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "Sample Std. Dev. of Scores (s, n−1)",
+                        },
+                        ticks: {
+                            callback: (value) => this.formatScore(value),
+                        },
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Metric",
                         },
                     },
                 },

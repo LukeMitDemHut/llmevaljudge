@@ -59,9 +59,10 @@ final class RunBenchmarkHandler
 
         // collect requests that can be run
         $requests = [];
+        $repeatCount = $benchmark->getRepeatCount();
 
         try {
-            // Execute benchmark: foreach test case, foreach prompt, foreach metric, foreach model
+            // Execute benchmark: foreach test case, foreach prompt, foreach metric, foreach model, foreach run
             foreach ($benchmark->getTestCases() as $testCase) {
                 foreach ($testCase->getPrompts() as $prompt) {
                     foreach ($benchmark->getMetrics() as $metric) {
@@ -102,22 +103,25 @@ final class RunBenchmarkHandler
                         }
 
                         foreach ($benchmark->getModels() as $model) {
-                            // If only missing mode, check if result already exists for this benchmark
-                            if ($message->onlyMissing) {
-                                $existingResult = $this->entityManager->getRepository(Result::class)
-                                    ->findByPromptMetricModelBenchmark($prompt, $metric, $model, $benchmark);
+                            for ($runIndex = 1; $runIndex <= $repeatCount; $runIndex++) {
+                                // If only missing mode, check if result already exists for this benchmark + runIndex
+                                if ($message->onlyMissing) {
+                                    $existingResult = $this->entityManager->getRepository(Result::class)
+                                        ->findByPromptMetricModelBenchmarkAndRun($prompt, $metric, $model, $benchmark, $runIndex);
 
-                                if ($existingResult) {
-                                    continue; // Skip this combination as it already has a result for this benchmark
+                                    if ($existingResult) {
+                                        continue; // Skip this combination as it already has a result
+                                    }
                                 }
-                            }
 
-                            // Collect requests for this model
-                            $requests[] = [
-                                'prompt' => $prompt,
-                                'metric' => $metric,
-                                'model' => $model
-                            ];
+                                // Collect requests for this model and run
+                                $requests[] = [
+                                    'prompt' => $prompt,
+                                    'metric' => $metric,
+                                    'model' => $model,
+                                    'runIndex' => $runIndex
+                                ];
+                            }
                         }
                     }
                 }
@@ -155,7 +159,8 @@ final class RunBenchmarkHandler
                 $request['prompt']->getId(),
                 $request['metric']->getId(),
                 $request['model']->getId(),
-                $benchmark->getId()
+                $benchmark->getId(),
+                $request['runIndex']
             );
             $this->messageBus->dispatch($evaluateMessage);
         }

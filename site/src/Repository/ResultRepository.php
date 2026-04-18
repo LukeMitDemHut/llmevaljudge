@@ -18,6 +18,26 @@ class ResultRepository extends ServiceEntityRepository
     }
 
     /**
+     * Find an existing result by the combination of prompt, metric, model, benchmark, and runIndex
+     */
+    public function findByPromptMetricModelBenchmarkAndRun($prompt, $metric, $model, $benchmark, int $runIndex): ?Result
+    {
+        return $this->createQueryBuilder('r')
+            ->where('r.prompt = :prompt')
+            ->andWhere('r.metric = :metric')
+            ->andWhere('r.model = :model')
+            ->andWhere('r.benchmark = :benchmark')
+            ->andWhere('r.runIndex = :runIndex')
+            ->setParameter('prompt', $prompt)
+            ->setParameter('metric', $metric)
+            ->setParameter('model', $model)
+            ->setParameter('benchmark', $benchmark)
+            ->setParameter('runIndex', $runIndex)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Find an existing result by the combination of prompt, metric, model, and benchmark
      * This ensures we don't create duplicate results for the same test configuration within a specific benchmark
      */

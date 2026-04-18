@@ -14,6 +14,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use App\MessageHandler\RunBenchmarkHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(
     name: 'benchmark:run',
@@ -25,7 +26,8 @@ class RunBenchmarkCommand extends Command
         private EntityManagerInterface $entityManager,
         private HttpClientInterface $httpClient,
         private LoggerInterface $logger,
-        private SettingRepository $settingRepository
+        private SettingRepository $settingRepository,
+        private MessageBusInterface $messageBus,
     ) {
         parent::__construct();
     }
@@ -49,7 +51,8 @@ class RunBenchmarkCommand extends Command
                 $this->entityManager,
                 $this->httpClient,
                 $this->logger,
-                $this->settingRepository
+                $this->settingRepository,
+                $this->messageBus,
             );
 
             $message = new RunBenchmark($benchmarkId, $onlyMissing);

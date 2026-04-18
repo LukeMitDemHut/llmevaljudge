@@ -63,6 +63,27 @@
                             />
                         </div>
                     </div>
+                    <div class="col-12">
+                        <div class="mb-3">
+                            <label for="repeatCount" class="form-label"
+                                >Evaluation Repeats</label
+                            >
+                            <input
+                                id="repeatCount"
+                                v-model.number="formData.repeatCount"
+                                type="number"
+                                class="form-control"
+                                min="1"
+                                max="20"
+                                placeholder="1"
+                            />
+                            <div class="form-text">
+                                Number of independent judgements per
+                                combination. Higher values yield more consistent
+                                results through averaging. Default: 1
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -327,6 +348,12 @@
                     <div class="col-md-6">
                         <Card class="bg-light">
                             <h6 class="mb-2">Benchmark Estimate</h6>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Evaluation Repeats:</span>
+                                <span class="fw-bold"
+                                    >{{ formData.repeatCount || 1 }}×</span
+                                >
+                            </div>
                             <div class="d-flex justify-content-between">
                                 <span>Total Evaluations:</span>
                                 <span class="fw-bold">{{
@@ -431,6 +458,7 @@ export default {
             ],
             formData: {
                 name: "",
+                repeatCount: 1,
                 modelIds: [],
                 testCaseIds: [],
                 metricIds: [],
@@ -455,19 +483,19 @@ export default {
 
         selectedModels() {
             return (this.benchmarksStore.models || []).filter((m) =>
-                this.formData.modelIds.includes(m.id)
+                this.formData.modelIds.includes(m.id),
             );
         },
 
         selectedTestCases() {
             return (this.benchmarksStore.testCases || []).filter((tc) =>
-                this.formData.testCaseIds.includes(tc.id)
+                this.formData.testCaseIds.includes(tc.id),
             );
         },
 
         selectedMetrics() {
             return (this.benchmarksStore.metrics || []).filter((m) =>
-                this.formData.metricIds.includes(m.id)
+                this.formData.metricIds.includes(m.id),
             );
         },
 
@@ -503,7 +531,7 @@ export default {
             this.selectedMetrics.forEach((metric) => {
                 if (metric.definition && Array.isArray(metric.definition)) {
                     metric.definition.forEach((param) =>
-                        requiredParams.add(param)
+                        requiredParams.add(param),
                     );
                 }
             });
@@ -513,7 +541,7 @@ export default {
                     this.getTotalPromptsWithoutExpectedOutput();
                 if (promptsWithoutExpectedOutput > 0) {
                     warnings.push(
-                        `${promptsWithoutExpectedOutput} prompts will be skipped because they lack expected output required by selected metrics.`
+                        `${promptsWithoutExpectedOutput} prompts will be skipped because they lack expected output required by selected metrics.`,
                     );
                 }
             }
@@ -523,7 +551,7 @@ export default {
                     this.getTotalPromptsWithoutContext();
                 if (promptsWithoutContext > 0) {
                     warnings.push(
-                        `${promptsWithoutContext} prompts will be skipped because they lack context required by selected metrics.`
+                        `${promptsWithoutContext} prompts will be skipped because they lack context required by selected metrics.`,
                     );
                 }
             }
@@ -536,7 +564,8 @@ export default {
             return (
                 validPrompts *
                 this.selectedModels.length *
-                this.selectedMetrics.length
+                this.selectedMetrics.length *
+                (this.formData.repeatCount || 1)
             );
         },
     },
@@ -559,6 +588,7 @@ export default {
 
                 this.formData = {
                     name: this.benchmark.name || "",
+                    repeatCount: this.benchmark.repeatCount || 1,
                     modelIds: this.benchmark.models?.map((m) => m.id) || [],
                     testCaseIds:
                         this.benchmark.testCases?.map((tc) => tc.id) || [],
@@ -660,6 +690,7 @@ export default {
 
                 const data = {
                     name: this.formData.name,
+                    repeatCount: this.formData.repeatCount,
                     modelIds: this.formData.modelIds,
                     testCaseIds: this.formData.testCaseIds,
                     metricIds: this.formData.metricIds,
@@ -668,7 +699,7 @@ export default {
                 if (this.isEditMode) {
                     await this.benchmarksStore.updateBenchmark(
                         this.benchmark.id,
-                        data
+                        data,
                     );
                 } else {
                     await this.benchmarksStore.createBenchmark(data);

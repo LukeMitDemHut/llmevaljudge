@@ -59,6 +59,10 @@ class Benchmark
     #[Groups(['api', 'benchmarks'])]
     private ?int $progress = null;
 
+    #[ORM\Column(type: Types::INTEGER, options: ['default' => 1])]
+    #[Groups(['api', 'benchmarks'])]
+    private int $repeatCount = 1;
+
     /**
      * @var Collection<int, Result>
      */
@@ -239,6 +243,18 @@ class Benchmark
     public function resetProgress(): static
     {
         $this->progress = null;
+
+        return $this;
+    }
+
+    public function getRepeatCount(): int
+    {
+        return $this->repeatCount;
+    }
+
+    public function setRepeatCount(int $repeatCount): static
+    {
+        $this->repeatCount = max(1, $repeatCount);
 
         return $this;
     }

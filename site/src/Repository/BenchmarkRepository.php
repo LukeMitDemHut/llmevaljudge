@@ -100,6 +100,51 @@ class BenchmarkRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    /**
+     * Get per-run score standard deviations for judge consistency analysis.
+     * Returns one stddev value per prompt/model combination, grouped by metric.
+     */
+    public function getJudgeConsistencyData(Benchmark $benchmark): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sql = '
+            SELECT met.id as metric_id, met.name as metric_name,
+                   r.prompt_id, r.model_id,
+                   STDDEV_SAMP(r.score) as run_stddev
+            FROM result r
+            JOIN metric met ON r.metric_id = met.id
+            WHERE r.benchmark_id = :benchmarkId
+            GROUP BY met.id, met.name, r.prompt_id, r.model_id
+            ORDER BY met.name
+        ';
+
+        $rows = $conn->executeQuery($sql, ['benchmarkId' => $benchmark->getId()])->fetchAllAssociative();
+
+        $byMetric = [];
+        $allStddevs = [];
+        foreach ($rows as $row) {
+            $stddev = (float) $row['run_stddev'];
+            $metricName = $row['metric_name'];
+            $byMetric[$metricName][] = $stddev;
+            $allStddevs[] = $stddev;
+        }
+
+        $result = [];
+        foreach ($byMetric as $metricName => $stddevs) {
+            $result[] = [
+                'name' => $metricName,
+                'stddevs' => $stddevs,
+            ];
+        }
+        $result[] = [
+            'name' => 'Overall',
+            'stddevs' => $allStddevs,
+        ];
+
+        return $result;
+    }
+
     //    /**
     //     * @return Benchmark[] Returns an array of Benchmark objects
     //     */

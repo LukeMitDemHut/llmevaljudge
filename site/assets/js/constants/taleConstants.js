@@ -103,6 +103,11 @@ export const AVAILABLE_ENGINES = [
                 supportsTimeRange: true,
             },
             {
+                value: "braveapi",
+                label: "Brave API",
+                supportsTimeRange: true,
+            },
+            {
                 value: "duckduckgo",
                 label: "DuckDuckGo",
                 supportsTimeRange: true,
@@ -126,12 +131,12 @@ export const AVAILABLE_ENGINES = [
  */
 export const ENGINE_LABELS = (() => {
     const labels = {};
-    AVAILABLE_ENGINES.forEach(category => {
-        category.engines.forEach(engine => {
+    AVAILABLE_ENGINES.forEach((category) => {
+        category.engines.forEach((engine) => {
             labels[engine.value] = engine.label;
         });
     });
-    
+
     // Add any additional mappings that might be needed
     return {
         ...labels,
@@ -156,7 +161,7 @@ export function formatEngineLabel(engine) {
  * @returns {Array} Array of engines for the category
  */
 export function getEnginesForCategory(categoryKey) {
-    const category = AVAILABLE_ENGINES.find(cat => cat.key === categoryKey);
+    const category = AVAILABLE_ENGINES.find((cat) => cat.key === categoryKey);
     return category ? category.engines : [];
 }
 
@@ -166,6 +171,6 @@ export function getEnginesForCategory(categoryKey) {
  * @returns {string} The time range label
  */
 export function getTimeRangeLabel(value) {
-    const timeRange = AVAILABLE_TIME_RANGES.find(tr => tr.value === value);
+    const timeRange = AVAILABLE_TIME_RANGES.find((tr) => tr.value === value);
     return timeRange ? timeRange.label : value;
 }

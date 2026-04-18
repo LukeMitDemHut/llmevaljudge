@@ -24,3 +24,4 @@ class EvalRequest(BaseModel):
     model: ModelInfo
     metric: Metric
     system_prompt: Optional[str] = ""
+    run_index: Optional[int] = 1

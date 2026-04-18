@@ -133,8 +133,8 @@
                                             :class="
                                                 getScoreBadgeClass(
                                                     getPromptAverageScore(
-                                                        prompt
-                                                    )
+                                                        prompt,
+                                                    ),
                                                 )
                                             "
                                         >
@@ -176,8 +176,157 @@
                     </div>
                 </Card>
 
-                <!-- Results for this prompt -->
-                <div class="row">
+                <!-- Aggregated view when repeatCount > 1 -->
+                <div v-if="repeatCount > 1">
+                    <div
+                        v-for="group in promptAggregatedResults"
+                        :key="group.key"
+                        class="col-12 mb-3"
+                    >
+                        <Card>
+                            <div
+                                class="d-flex justify-content-between align-items-start mb-3"
+                            >
+                                <div>
+                                    <h6 class="mb-1">
+                                        {{ group.model.name }}
+                                        <span class="text-muted">with</span>
+                                        {{ group.metric.name }}
+                                    </h6>
+                                    <small class="text-muted">
+                                        {{ group.runCount }} runs &middot; Min:
+                                        {{ Math.round(group.minScore * 100) }}%
+                                        &middot; Max:
+                                        {{ Math.round(group.maxScore * 100) }}%
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span
+                                        class="badge fs-6"
+                                        :class="
+                                            getScoreBadgeClass(
+                                                group.avgScore * 100,
+                                            )
+                                        "
+                                    >
+                                        ⌀
+                                        {{ Math.round(group.avgScore * 100) }}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Individual runs toggle -->
+                            <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                @click="toggleRunDetails(group.key)"
+                            >
+                                {{
+                                    expandedGroups.includes(group.key)
+                                        ? "Hide"
+                                        : "Show"
+                                }}
+                                Individual Runs
+                            </Button>
+
+                            <div
+                                v-if="expandedGroups.includes(group.key)"
+                                class="mt-3"
+                            >
+                                <div
+                                    v-for="result in group.runs"
+                                    :key="result.id"
+                                    class="border rounded p-3 mb-2"
+                                >
+                                    <div
+                                        class="d-flex justify-content-between align-items-center mb-2"
+                                    >
+                                        <strong
+                                            >Run
+                                            {{ result.runIndex || 1 }}</strong
+                                        >
+                                        <span
+                                            class="badge"
+                                            :class="
+                                                getScoreBadgeClass(
+                                                    result.score * 100,
+                                                )
+                                            "
+                                        >
+                                            {{
+                                                Math.round(result.score * 100)
+                                            }}%
+                                        </span>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="small">Actual Output</h6>
+                                            <div
+                                                class="bg-light p-2 rounded"
+                                                style="
+                                                    max-height: 150px;
+                                                    overflow-y: auto;
+                                                "
+                                            >
+                                                <small
+                                                    ><code>{{
+                                                        result.actualOutput
+                                                    }}</code></small
+                                                >
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="small">Reasoning</h6>
+                                            <div
+                                                class="bg-light p-2 rounded"
+                                                style="
+                                                    max-height: 150px;
+                                                    overflow-y: auto;
+                                                "
+                                            >
+                                                <small>{{
+                                                    result.reason ||
+                                                    "No reasoning provided"
+                                                }}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-if="result.logs" class="mt-2">
+                                        <Button
+                                            variant="outline-secondary"
+                                            size="sm"
+                                            @click="toggleLogs(result.id)"
+                                        >
+                                            {{
+                                                showingLogs.includes(result.id)
+                                                    ? "Hide"
+                                                    : "Show"
+                                            }}
+                                            Logs
+                                        </Button>
+                                        <div
+                                            v-if="
+                                                showingLogs.includes(result.id)
+                                            "
+                                            class="mt-2 bg-dark text-light p-3 rounded"
+                                            style="
+                                                max-height: 200px;
+                                                overflow-y: auto;
+                                            "
+                                        >
+                                            <pre
+                                                class="mb-0 text-light"
+                                            ><code>{{ result.logs }}</code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+
+                <!-- Original single-run view -->
+                <div v-else class="row">
                     <div
                         v-for="result in promptResults"
                         :key="result.id"
@@ -203,7 +352,7 @@
                                         class="badge fs-6"
                                         :class="
                                             getScoreBadgeClass(
-                                                result.score * 100
+                                                result.score * 100,
                                             )
                                         "
                                     >
@@ -277,7 +426,82 @@
             <!-- All Results Table (when no specific prompt selected) -->
             <div v-else-if="!selectedPrompt && filteredResults.length > 0">
                 <h5 class="mb-3">All Results</h5>
-                <div class="table-responsive">
+
+                <!-- Aggregated table view for repeated evaluations -->
+                <div
+                    v-if="repeatCount > 1 && aggregatedResults"
+                    class="table-responsive"
+                >
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>Metric</th>
+                                <th>Test Case</th>
+                                <th>Prompt</th>
+                                <th>Avg Score</th>
+                                <th>Runs</th>
+                                <th>Min / Max</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="group in paginatedAggregatedResults"
+                                :key="group.key"
+                            >
+                                <td>{{ group.model.name }}</td>
+                                <td>{{ group.metric.name }}</td>
+                                <td>
+                                    {{
+                                        group.prompt.testCase?.name || "Unknown"
+                                    }}
+                                </td>
+                                <td
+                                    class="text-truncate"
+                                    style="max-width: 200px"
+                                >
+                                    {{ group.prompt.input || "No input" }}
+                                </td>
+                                <td>
+                                    <span
+                                        class="badge"
+                                        :class="
+                                            getScoreBadgeClass(
+                                                group.avgScore * 100,
+                                            )
+                                        "
+                                    >
+                                        ⌀
+                                        {{ Math.round(group.avgScore * 100) }}%
+                                    </span>
+                                </td>
+                                <td>{{ group.runCount }}</td>
+                                <td>
+                                    <small
+                                        >{{ Math.round(group.minScore * 100) }}%
+                                        /
+                                        {{
+                                            Math.round(group.maxScore * 100)
+                                        }}%</small
+                                    >
+                                </td>
+                                <td>
+                                    <Button
+                                        variant="outline-primary"
+                                        size="sm"
+                                        @click="selectPrompt(group.prompt)"
+                                    >
+                                        View Details
+                                    </Button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Standard single-run table -->
+                <div v-else class="table-responsive">
                     <table class="table table-striped">
                         <thead>
                             <tr>
@@ -313,7 +537,7 @@
                                         class="badge"
                                         :class="
                                             getScoreBadgeClass(
-                                                result.score * 100
+                                                result.score * 100,
                                             )
                                         "
                                     >
@@ -454,6 +678,7 @@ export default {
             selectedTestCase: "",
             selectedPrompt: null,
             showingLogs: [],
+            expandedGroups: [],
             currentPage: 1,
             itemsPerPage: 10,
         };
@@ -485,7 +710,7 @@ export default {
                 if (result.prompt?.testCase) {
                     testCases.set(
                         result.prompt.testCase.id,
-                        result.prompt.testCase
+                        result.prompt.testCase,
                     );
                 }
             });
@@ -497,19 +722,19 @@ export default {
 
             if (this.selectedModel) {
                 filtered = filtered.filter(
-                    (r) => r.model?.id == this.selectedModel
+                    (r) => r.model?.id == this.selectedModel,
                 );
             }
 
             if (this.selectedMetric) {
                 filtered = filtered.filter(
-                    (r) => r.metric?.id == this.selectedMetric
+                    (r) => r.metric?.id == this.selectedMetric,
                 );
             }
 
             if (this.selectedTestCase) {
                 filtered = filtered.filter(
-                    (r) => r.prompt?.testCase?.id == this.selectedTestCase
+                    (r) => r.prompt?.testCase?.id == this.selectedTestCase,
                 );
             }
 
@@ -537,28 +762,104 @@ export default {
             if (!this.selectedPrompt) return [];
 
             return this.filteredResults.filter(
-                (r) => r.prompt?.id === this.selectedPrompt.id
+                (r) => r.prompt?.id === this.selectedPrompt.id,
             );
+        },
+
+        promptAggregatedResults() {
+            if (!this.selectedPrompt || this.repeatCount <= 1) return [];
+
+            const groups = {};
+            this.promptResults.forEach((result) => {
+                const key = `${result.metric?.id}-${result.model?.id}`;
+                if (!groups[key]) {
+                    groups[key] = {
+                        key,
+                        prompt: result.prompt,
+                        metric: result.metric,
+                        model: result.model,
+                        runs: [],
+                    };
+                }
+                groups[key].runs.push(result);
+            });
+
+            return Object.values(groups).map((group) => {
+                const scores = group.runs.map((r) => r.score || 0);
+                const avgScore =
+                    scores.reduce((a, b) => a + b, 0) / scores.length;
+                const minScore = Math.min(...scores);
+                const maxScore = Math.max(...scores);
+                group.runs.sort(
+                    (a, b) => (a.runIndex || 1) - (b.runIndex || 1),
+                );
+                return {
+                    ...group,
+                    avgScore,
+                    minScore,
+                    maxScore,
+                    runCount: group.runs.length,
+                };
+            });
         },
 
         averageScore() {
             if (this.filteredResults.length === 0) return 0;
             const sum = this.filteredResults.reduce(
                 (acc, result) => acc + (result.score || 0),
-                0
+                0,
             );
             return Math.round((sum / this.filteredResults.length) * 100);
         },
 
+        repeatCount() {
+            return this.benchmark.repeatCount || 1;
+        },
+
+        // Group results by (prompt, metric, model) and compute averages
+        aggregatedResults() {
+            if (this.repeatCount <= 1) return null;
+
+            const groups = {};
+            this.filteredResults.forEach((result) => {
+                const key = `${result.prompt?.id}-${result.metric?.id}-${result.model?.id}`;
+                if (!groups[key]) {
+                    groups[key] = {
+                        key,
+                        prompt: result.prompt,
+                        metric: result.metric,
+                        model: result.model,
+                        runs: [],
+                    };
+                }
+                groups[key].runs.push(result);
+            });
+
+            return Object.values(groups).map((group) => {
+                const scores = group.runs.map((r) => r.score || 0);
+                const avgScore =
+                    scores.reduce((a, b) => a + b, 0) / scores.length;
+                const minScore = Math.min(...scores);
+                const maxScore = Math.max(...scores);
+                return {
+                    ...group,
+                    avgScore,
+                    minScore,
+                    maxScore,
+                    runCount: group.runs.length,
+                };
+            });
+        },
+
         uniqueModels() {
             return new Set(
-                this.filteredResults.map((r) => r.model?.id).filter(Boolean)
+                this.filteredResults.map((r) => r.model?.id).filter(Boolean),
             ).size;
         },
 
         uniquePrompts() {
             return new Set(
-                this.filteredResults.map((r) => r.prompt?.id).filter(Boolean)
+                this.filteredResults.map((r) => r.prompt?.id).filter(Boolean),
             ).size;
         },
 
@@ -568,7 +869,19 @@ export default {
             return this.filteredResults.slice(start, end);
         },
 
+        paginatedAggregatedResults() {
+            if (!this.aggregatedResults) return [];
+            const start = (this.currentPage - 1) * this.itemsPerPage;
+            const end = start + this.itemsPerPage;
+            return this.aggregatedResults.slice(start, end);
+        },
+
         totalPages() {
+            if (this.repeatCount > 1 && this.aggregatedResults) {
+                return Math.ceil(
+                    this.aggregatedResults.length / this.itemsPerPage,
+                );
+            }
             return Math.ceil(this.filteredResults.length / this.itemsPerPage);
         },
 
@@ -614,7 +927,7 @@ export default {
             try {
                 // Load benchmark results using the ApiService
                 const results = await api.results.getByBenchmark(
-                    this.benchmark.id
+                    this.benchmark.id,
                 );
                 this.results = results || [];
             } catch (error) {
@@ -636,13 +949,13 @@ export default {
 
         getPromptAverageScore(prompt) {
             const promptResults = this.filteredResults.filter(
-                (r) => r.prompt?.id === prompt.id
+                (r) => r.prompt?.id === prompt.id,
             );
             if (promptResults.length === 0) return 0;
 
             const sum = promptResults.reduce(
                 (acc, result) => acc + (result.score || 0),
-                0
+                0,
             );
             return Math.round((sum / promptResults.length) * 100);
         },
@@ -659,6 +972,15 @@ export default {
                 this.showingLogs.splice(index, 1);
             } else {
                 this.showingLogs.push(resultId);
+            }
+        },
+
+        toggleRunDetails(groupKey) {
+            const index = this.expandedGroups.indexOf(groupKey);
+            if (index > -1) {
+                this.expandedGroups.splice(index, 1);
+            } else {
+                this.expandedGroups.push(groupKey);
             }
         },
 

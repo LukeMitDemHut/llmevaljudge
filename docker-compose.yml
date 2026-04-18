@@ -62,7 +62,7 @@ services:
     build: .
     restart: always
     deploy:
-      replicas: 6 # Run 6 worker instances
+      replicas: 20 # Run 20 worker instances
     command:
       [
         "php",
@@ -125,6 +125,7 @@ services:
     environment:
       - BASE_URL=http://localhost:${SEARCH_PORT}/
       - RUNNING_USER=searx
+      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
     networks:
       - judge_network
     volumes:

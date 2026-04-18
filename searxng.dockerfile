@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Set environment variables to avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
@@ -36,7 +36,7 @@ RUN python3 -m venv "/usr/local/searxng/searx-pyenv" && \
 # Install SearXNG dependencies
 RUN . /usr/local/searxng/searx-pyenv/bin/activate && \
     pip install -U pip setuptools wheel pyyaml && \
-    pip install lxml msgspec && \
+    pip install lxml msgspec typing_extensions tomli && \
     cd "/usr/local/searxng/searxng-src" && \
     pip install --use-pep517 --no-build-isolation -e .
 

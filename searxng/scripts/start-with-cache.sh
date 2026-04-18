@@ -7,15 +7,26 @@ echo "Redis started for caching"
 # Copy nginx config from mounted volume to expected location
 cp /etc/searxng/nginx/nginx.conf /etc/nginx/nginx.conf
 
+# Prepare settings: copy to writable location and inject Brave API key if provided
+cp /etc/searxng/settings.yml /tmp/searxng-settings.yml
+
+if [ -n "$BRAVE_SEARCH_API_KEY" ]; then
+    echo "Brave Search API key detected — enabling braveapi engine..."
+    sed -i "s|api_key: __BRAVE_API_KEY__|api_key: $BRAVE_SEARCH_API_KEY|" /tmp/searxng-settings.yml
+    sed -i '/name: braveapi/{n;n;n;n;n;n;n;s/disabled: true/disabled: false/}' /tmp/searxng-settings.yml
+else
+    echo "No Brave Search API key set — braveapi engine remains disabled."
+fi
+
 # Set up environment for SearXNG
-export SEARXNG_SETTINGS_PATH="/etc/searxng/settings.yml"
+export SEARXNG_SETTINGS_PATH="/tmp/searxng-settings.yml"
 
 # Activate the virtual environment and start SearXNG as searxng user
 echo "Starting SearXNG..."
 cd /usr/local/searxng/searxng-src
 su - searxng -c "
     source /usr/local/searxng/searx-pyenv/bin/activate
-    export SEARXNG_SETTINGS_PATH='/etc/searxng/settings.yml'
+    export SEARXNG_SETTINGS_PATH='/tmp/searxng-settings.yml'
     cd /usr/local/searxng/searxng-src
     python searx/webapp.py
 " &

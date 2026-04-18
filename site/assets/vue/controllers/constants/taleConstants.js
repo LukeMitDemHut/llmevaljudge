@@ -103,6 +103,11 @@ export const AVAILABLE_ENGINES = [
                 supportsTimeRange: true,
             },
             {
+                value: "braveapi",
+                label: "Brave API",
+                supportsTimeRange: true,
+            },
+            {
                 value: "duckduckgo",
                 label: "DuckDuckGo",
                 supportsTimeRange: true,

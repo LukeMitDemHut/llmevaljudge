@@ -3,6 +3,8 @@ from openai import OpenAI
 import os
 import json
 import hashlib
+import fcntl
+import time
 from datetime import datetime, timedelta
 from eval_logger import eval_logger
 
@@ -28,7 +30,7 @@ class LlmRequestor:
         })
 
     def _generate_cache_key(self):
-        """Generate a unique cache key based on prompt, model, and system prompt"""
+        """Generate a unique cache key based on prompt, model, and system prompt (run_index excluded so repeated runs share the same model response)"""
         cache_data = {
             "prompt_input": self.prompt.input,
             "model_name": self.model.name,
@@ -108,55 +110,74 @@ class LlmRequestor:
             "cache_file": cache_file_path
         })
         
-        # Check if cache is valid and load from cache if available
+        # Fast path: check cache without acquiring lock
         if self._is_cache_valid(cache_file_path):
             cached_response = self._load_from_cache(cache_file_path)
             if cached_response is not None:
-                eval_logger.info("llm_requestor", "Using cached response")
+                eval_logger.info("llm_requestor", "Using cached response (fast path)")
                 return cached_response
         
-        # Cache miss or invalid cache - make API request
-        eval_logger.info("llm_requestor", "Cache miss, making API request")
+        # Cache miss — acquire exclusive file lock to prevent parallel API calls
+        # for the same prompt+model combination (race condition with concurrent workers)
+        lock_file_path = cache_file_path + ".lock"
+        eval_logger.info("llm_requestor", "Cache miss, acquiring lock", {
+            "lock_file": lock_file_path
+        })
         
-        eval_logger.info("llm_requestor", "Creating OpenAI client")
-        client = OpenAI(
-            base_url=self.model.url,
-            api_key=self.model.key
-        )
-        messages = []
+        with open(lock_file_path, 'w') as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                # Re-check cache after acquiring lock — another worker may have
+                # populated it while we were waiting
+                if self._is_cache_valid(cache_file_path):
+                    cached_response = self._load_from_cache(cache_file_path)
+                    if cached_response is not None:
+                        eval_logger.info("llm_requestor", "Using cached response (populated by another worker)")
+                        return cached_response
+                
+                # Still no cache — make API request (we hold the lock)
+                eval_logger.info("llm_requestor", "Making API request (holding lock)")
+                
+                client = OpenAI(
+                    base_url=self.model.url,
+                    api_key=self.model.key
+                )
+                messages = []
 
-        if self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
-            eval_logger.debug("llm_requestor", "Added system prompt", {
-                "system_prompt_length": len(self.system_prompt)
-            })
-            
-        messages.append({"role": "user", "content": self.prompt.input})
-        
-        eval_logger.log_llm_request("llm_requestor", 
-                                   prompt=self.prompt.input,
-                                   model_info={
-                                       "name": self.model.name,
-                                       "url": self.model.url,
-                                       "total_messages": len(messages)
-                                   })
+                if self.system_prompt:
+                    messages.append({"role": "system", "content": self.system_prompt})
+                    eval_logger.debug("llm_requestor", "Added system prompt", {
+                        "system_prompt_length": len(self.system_prompt)
+                    })
+                    
+                messages.append({"role": "user", "content": self.prompt.input})
+                
+                eval_logger.log_llm_request("llm_requestor", 
+                                           prompt=self.prompt.input,
+                                           model_info={
+                                               "name": self.model.name,
+                                               "url": self.model.url,
+                                               "total_messages": len(messages)
+                                           })
 
-        eval_logger.info("llm_requestor", "Making API request to model")
-        completion = client.chat.completions.create(
-            model=self.model.name,
-            messages=messages
-        )
-        
-        response_content = completion.choices[0].message.content
-        
-        eval_logger.log_llm_response("llm_requestor", 
-                                    response=response_content,
-                                    metadata={
-                                        "response_length": len(response_content),
-                                        "finish_reason": completion.choices[0].finish_reason if completion.choices else None
-                                    })
-        
-        # Save response to cache
-        self._save_to_cache(cache_file_path, response_content)
-        
-        return response_content
+                eval_logger.info("llm_requestor", "Making API request to model")
+                completion = client.chat.completions.create(
+                    model=self.model.name,
+                    messages=messages
+                )
+                
+                response_content = completion.choices[0].message.content
+                
+                eval_logger.log_llm_response("llm_requestor", 
+                                            response=response_content,
+                                            metadata={
+                                                "response_length": len(response_content),
+                                                "finish_reason": completion.choices[0].finish_reason if completion.choices else None
+                                            })
+                
+                # Save response to cache (still under lock)
+                self._save_to_cache(cache_file_path, response_content)
+                
+                return response_content
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)

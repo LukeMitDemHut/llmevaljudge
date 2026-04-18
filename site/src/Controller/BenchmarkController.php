@@ -21,7 +21,12 @@ class BenchmarkController extends AbstractController
         TestCaseRepository $testCaseRepository,
         NormalizerInterface $normalizer
     ): Response {
-        $benchmarks = $benchmarkRepository->findAll();
+        // Use createQueryBuilder to ensure consistent sorting with API endpoint
+        $benchmarks = $benchmarkRepository->createQueryBuilder('b')
+            ->orderBy('b.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
         $models = $modelRepository->findAll();
         $metrics = $metricRepository->findAll();
         $testCases = $testCaseRepository->findAll();

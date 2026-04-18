@@ -41,6 +41,7 @@ class AnalysisService
         return [
             'overall' => $overallStats,
             'byModel' => $modelStats,
+            'judgeConsistency' => $this->benchmarkRepository->getJudgeConsistencyData($benchmark),
         ];
     }
 
