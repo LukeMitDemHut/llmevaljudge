@@ -230,24 +230,25 @@ class ToolUseMetric(BaseMetric):
                                    tool_call: dict, history_summary: str) -> list:
         """Builds the judge prompt for simulated tool results (separate from the evaluation prompt)."""
         system = (
-            "Du bist ein Werkzeug-Simulator in einer LLM-Evaluation. "
-            "Du simulierst die Ergebnisse von Werkzeugaufrufen eines zu evaluierenden Sprachmodells. "
-            "Antworte AUSSCHLIESSLICH mit JSON: {\"result\": \"<simuliertes Werkzeugergebnis als Klartext>\"}. "
-            "Der Klartext ist das, was das Modell als Tool-Antwort sieht — formuliere ihn realistisch und inhaltlich wie ein echtes Werkzeug."
+            "You are a tool simulator in an LLM evaluation. "
+            "You simulate the results of tool calls made by the model under evaluation. "
+            "Respond ONLY with JSON: {\"result\": \"<simulated tool result as plain text>\"}. "
+            "The plain text is what the model sees as the tool response — write it realistically, "
+            "as a real tool would respond."
         )
 
         tool_schema_str = json.dumps(self.tools, ensure_ascii=False, indent=2)
 
         user = (
-            f"SIMULATIONSREGELN (vom Evaluations-Benutzer definiert):\n{self.simulation_prompt}\n\n"
-            f"VERFÜGBARE WERKZEUGE (Schemata):\n{tool_schema_str}\n\n"
-            f"ANGRUFENES WERKZEUG: {tool_call['name']}\n"
-            f"PARAMETER: {tool_call['arguments']}\n"
-            f"AKTUELLE RUNDE: {round_index} von max. {self.max_tool_rounds}\n\n"
-            f"BISHERIGE SIMULIERTE ERGEBNISSE (Verlauf):\n{history_summary or '(keine — dies ist die erste Runde)'}\n\n"
-            f"ORIGINAL-AUFGABE DES MODELLS:\n{task_input}\n\n"
-            "Erzeuge das simulierte Werkzeugergebnis für diese Runde. Beachte: frühere Ergebnisse und "
-            "die Aufgabe sind zusammen zu berücksichtigen (kontextabhängige Simulation)."
+            f"SIMULATION RULES (defined by the evaluation user):\n{self.simulation_prompt}\n\n"
+            f"AVAILABLE TOOLS (schemas):\n{tool_schema_str}\n\n"
+            f"INVOKED TOOL: {tool_call['name']}\n"
+            f"ARGUMENTS: {tool_call['arguments']}\n"
+            f"CURRENT ROUND: {round_index} of max. {self.max_tool_rounds}\n\n"
+            f"PREVIOUSLY SIMULATED RESULTS (history):\n{history_summary or '(none — this is the first round)'}\n\n"
+            f"ORIGINAL TASK OF THE MODEL:\n{task_input}\n\n"
+            "Produce the simulated tool result for this round. Take into account both previous "
+            "results and the original task (context-dependent simulation)."
         )
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
@@ -280,11 +281,11 @@ class ToolUseMetric(BaseMetric):
     def _build_evaluation_messages(self, test_case: LLMTestCase, conversation: list) -> list:
         """Builds the final evaluation prompt: task, tools, both user prompts, full transcript."""
         system = (
-            "Du bist ein präziser LLM-Evaluierungs-Richter (LLM-as-a-Judge). "
-            "Bewerte die Werkzeugnutzung eines Sprachmodells streng nach den Kriterien, "
-            "die dir der Evaluations-Benutzer vorgibt. Antworte AUSSCHLIESSLICH mit JSON: "
-            "{\"score\": <zahl zwischen 0 und 10>, \"reasoning\": \"<detaillierte Begründung>\"}. "
-            "Der Score 0 bedeutet: völlig unzureichend; 10: exzellente Werkzeugnutzung."
+            "You are a precise LLM-as-a-Judge grader. "
+            "Assess how well a language model used its available tools, strictly following the "
+            "criteria defined by the evaluation user. Respond ONLY with JSON: "
+            "{\"score\": <number between 0 and 10>, \"reasoning\": \"<detailed reasoning>\"}. "
+            "A score of 0 means completely insufficient, 10 means excellent tool usage."
         )
 
         tool_schema_str = json.dumps(self.tools, ensure_ascii=False, indent=2)
@@ -293,20 +294,20 @@ class ToolUseMetric(BaseMetric):
         expected_block = ""
         if self.expected_behavior and self.expected_behavior.strip():
             expected_block = (
-                f"\nERWARTUNGSHORIZONT / ZIELVERHALTEN (zusätzlich zu den Kriterien):\n"
+                f"\nEXPECTED BEHAVIOR / TARGET BEHAVIOR (in addition to the criteria):\n"
                 f"{self.expected_behavior.strip()}\n"
             )
 
         user = (
-            f"AUFGABE (Original-Nutzerprompt):\n{test_case.input}\n\n"
-            f"VERFÜGBARE WERKZEUGE (Schemata):\n{tool_schema_str}\n\n"
-            f"SIMULATIONSREGELN (wie die Werkzeugergebnisse entstanden):\n{self.simulation_prompt}\n\n"
-            f"BEWERTUNGSKRITERIEN (vom Evaluations-Benutzer definiert):\n{self.evaluation_prompt}"
+            f"TASK (original user prompt):\n{test_case.input}\n\n"
+            f"AVAILABLE TOOLS (schemas):\n{tool_schema_str}\n\n"
+            f"SIMULATION RULES (how the tool results were generated):\n{self.simulation_prompt}\n\n"
+            f"EVALUATION CRITERIA (defined by the evaluation user):\n{self.evaluation_prompt}"
             f"{expected_block}\n"
-            f"VOLLSTÄNDIGER INTERAKTIONSVERLAUF (alle Tool-Runden chronologisch):\n{conversation_str}\n\n"
-            "Bewerte anhand der Bewertungskriterien, wie gut das Modell seine Werkzeuge eingesetzt hat. "
-            "Beziehe den Weg (Runden, Parameter, Reaktionen auf Zwischenergebnisse, Beendigungszeitpunkt) "
-            "ein, nicht nur das finale Antwortergebnis."
+            f"FULL INTERACTION TRANSCRIPT (all tool rounds, chronological):\n{conversation_str}\n\n"
+            "Evaluate how well the model used its tools based on the evaluation criteria. "
+            "Consider the path as well (rounds, parameters, reactions to intermediate results, "
+            "when the interaction was ended), not just the final answer."
         )
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
@@ -319,7 +320,7 @@ class ToolUseMetric(BaseMetric):
             if role == "system":
                 continue
             if role == "user":
-                lines.append(f"[AUFGABE]\n{msg.get('content', '')}")
+                lines.append(f"[TASK]\n{msg.get('content', '')}")
             elif role == "assistant":
                 tcs = msg.get("tool_calls") or []
                 if tcs:
@@ -328,12 +329,12 @@ class ToolUseMetric(BaseMetric):
                         f"{t['function']['name']}({t['function'].get('arguments','')})"
                         for t in tcs
                     )
-                    lines.append(f"[RUNDE {round_no} — MODELL-RUF]")
+                    lines.append(f"[ROUND {round_no} — MODEL CALL]")
                     lines.append(calls)
                 else:
-                    lines.append(f"[FINALE ANTWORT]\n{msg.get('content','')}")
+                    lines.append(f"[FINAL ANSWER]\n{msg.get('content','')}")
             elif role == "tool":
-                lines.append(f"[SIMULIERTES WERKZEUGERGEBNIS für Runde {round_no}]\n{msg.get('content','')}")
+                lines.append(f"[SIMULATED TOOL RESULT for round {round_no}]\n{msg.get('content','')}")
         return "\n\n".join(lines)
 
     def _parse_evaluation_response(self, response: str) -> dict:
@@ -356,7 +357,7 @@ class ToolUseMetric(BaseMetric):
                     score = float(raw_score)
                     if 0 <= score <= 10:
                         if not reasoning.strip():
-                            reasoning = "(keine Begründung geliefert)"
+                            reasoning = "(no reasoning provided)"
                         return {"score": score, "reasoning": reasoning.strip()}
                     raise ValueError(f"Evaluation score out of range 0-10: {score}")
             except json.JSONDecodeError:
@@ -380,9 +381,9 @@ class ToolUseMetric(BaseMetric):
         conversation = []
         try:
             sys_msg = self.system_prompt or (
-                "Nutze die verfügbaren Werkzeuge, um die Aufgabe zu lösen. "
-                "Rufe Werkzeuge auf, wenn sie dir weiterhelfen; beantworte die Aufgabe "
-                "abschließend in normaler Sprache, wenn du genug Information hast."
+                "Use the available tools to solve the task. "
+                "Call tools whenever they help you make progress; once you have enough "
+                "information, provide your final answer in natural language."
             )
             conversation.append({"role": "system", "content": sys_msg})
             conversation.append({"role": "user", "content": test_case.input})
@@ -472,7 +473,7 @@ class ToolUseMetric(BaseMetric):
                         "content": sim,
                     }
                     conversation.append(tool_msg)
-                    history_summary += f"- Runde {round_no} ({tc['name']}({json.dumps(parsed_args, ensure_ascii=False)})): {sim[:300]}\n"
+                    history_summary += f"- Round {round_no} ({tc['name']}({json.dumps(parsed_args, ensure_ascii=False)})): {sim[:300]}\n"
 
                 self.rounds.append(round_record)
 
@@ -487,12 +488,10 @@ class ToolUseMetric(BaseMetric):
             self.evaluation_notes = err
             self.score = ERROR_SCORE
             self.success = False
-            conv_str = self._format_conversation(conversation) if conversation else ""
-            self.reason = (
-                f"Evaluation mit Fehler 0 Punkte beendet. FEHLER: {err}\n\n"
-                f"ENDGRUND: {self.end_reason}\n\n"
-                f"VERLAUF BIS ZUM FEHLER:\n{conv_str[:3000]}"
-            )
+            try:
+                self._finish_with_error(test_case, conversation, err)
+            except Exception:
+                self.reason = f"Evaluation failed: {err}"
             return self.score
 
     def _finish_with_error(self, test_case: LLMTestCase, conversation: list, error: str):
@@ -501,9 +500,9 @@ class ToolUseMetric(BaseMetric):
         self.success = False
         conv_str = self._format_conversation(conversation)
         self.reason = (
-            f"Evaluation mit Fehler 0 Punkte beendet. FEHLER: {error}\n\n"
-            f"ENDGRUND: {self.end_reason}\n\n"
-            f"VERLAUF BIS ZUM FEHLER:\n{conv_str[:3000]}"
+            f"Evaluation ended with an error and scored 0 points. ERROR: {error}\n\n"
+            f"END REASON: {self.end_reason}\n\n"
+            f"TRANSCRIPT UP TO THE ERROR:\n{conv_str[:3000]}"
         )
         self.evaluation_notes = error
 
@@ -540,16 +539,16 @@ class ToolUseMetric(BaseMetric):
             for r in self.rounds
         )
         self.reason = (
-            f"Score (intern 0-10): {internal_score} -> Prozent: {final_score}\n"
-            f"Endgrund: {self.end_reason}; Tool-Runden: {len(self.rounds)}"
+            f"Score (internal 0-10): {internal_score} -> Percentage: {final_score}\n"
+            f"End reason: {self.end_reason}; Tool rounds: {len(self.rounds)}"
             f"{' (max ' + str(self.max_tool_rounds) + ')' if self.end_reason == ROUND_END_MAX_ROUNDS else ''}.\n"
-            f"Rundenübersicht: {rounds_summary or '(keine)'}\n\n"
-            f"BEWERTUNG DES JUDGES:\n{reason}"
+            f"Round overview: {rounds_summary or '(none)'}\n\n"
+            f"JUDGE ASSESSMENT:\n{reason}"
         )
         if self.final_answer:
-            self.reason += f"\n\nFINALE MODELLANTWORT:\n{self.final_answer[:1500]}"
+            self.reason += f"\n\nFINAL MODEL ANSWER:\n{self.final_answer[:1500]}"
         if self.evaluation_notes:
-            self.reason += f"\n\nHINWEISE: {self.evaluation_notes}"
+            self.reason += f"\n\nNOTES: {self.evaluation_notes}"
 
         self.score = final_score
         self.success = final_score >= self.threshold

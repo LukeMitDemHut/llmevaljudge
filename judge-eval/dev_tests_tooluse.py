@@ -37,7 +37,7 @@ DEF = {
              {"name": "max_results", "type": "number", "description": "Max Treffer", "required": False},
          ]},
         {"name": "open_document",
-         "description": "Öffnet ein gefundenes Dokument.",
+         "description": "Opens a found document.",
          "parameters": [
              {"name": "document_id", "type": "string", "description": "Dokument-ID", "required": True},
          ]},
@@ -117,8 +117,8 @@ def test_multi_round_dependency():
         call_response("stop", content="Antwort: drei Schwestern."),
     ]
     sims = [
-        '{"result": "Treffer: doc_42 (Alice-Rätsel)."}',
-        '{"result": "Inhalt von doc_42: ein Bruder hat drei Schwestern."}',
+        '{"result": "Match: doc_42 (Alice puzzle)."}',
+        '{"result": "Content of doc_42: a brother has three sisters."}',
     ]
     with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
          patch.object(m.simulation_client, "chat", side_effect=[{"finish_reason": "stop", "content": s, "tool_calls": []} for s in sims]) as sim_call, \
@@ -130,7 +130,7 @@ def test_multi_round_dependency():
     assert len(m.rounds) == 2
     # Round 2 simulation must receive the round 1 history (context propagation):
     second_sim_prompt = sim_call.call_args_list[1][0][1][1]["content"]
-    assert "BISHERIGE SIMULIERTE ERGEBNISSE" in second_sim_prompt and "puzzle" in second_sim_prompt
+    assert "PREVIOUSLY SIMULATED RESULTS" in second_sim_prompt and "puzzle" in second_sim_prompt
     assert "doc_42" in second_sim_prompt  # round 1 result present in context
     print("TEST 2 OK: 2 dependent rounds, context propagation works")
 
