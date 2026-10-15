@@ -26,8 +26,8 @@ class MetricCreator:
     def __init__(self, metric: Metric, model: Optional[ModelInfo] = None, system_prompt: str = ""):
         self.metric = metric
         self.system_prompt = system_prompt
-        # Evaluatee model info (zu evaluierendes Modell) — von Tool-Use-Metriken benötigt;
-        # für die bestehenden Metriktypen bleibt das Verhalten unverändert.
+        # Model under evaluation — required by tool-use metrics; behavior for the
+        # existing metric types is unchanged (falls back to the judge model info).
         self.evaluatee = model if model is not None else self.metric.model
         eval_logger.info("metric_creator", "Initialized metric creator", {
             "metric_name": metric.name,

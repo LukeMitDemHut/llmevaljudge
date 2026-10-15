@@ -26,8 +26,8 @@ class Evaluator:
         eval_logger.info("evaluator", "Starting evaluation process")
 
         if self.metric.type == "tool-use":
-            # Tool-use: der Metrik-Loop erzeugt actual_output selbst (Konversation mit
-            # Tool-Runden); der klassische Einzel-Request entfällt.
+            # The tool-use metric loop produces actual_output itself (full conversation
+            # including tool rounds), so the single-request model call is skipped.
             eval_logger.info("evaluator", "Tool-use metric: skipping direct model request (loop builds output)")
 
             metric_creator = MetricCreator(self.metric, model=self.model, system_prompt=self.system_prompt)
@@ -49,11 +49,11 @@ class Evaluator:
                 "reason_length": len(metric_instance.reason) if metric_instance.reason else 0
             })
 
-            # Der Metrik-Loop liefert final_answer = eigentliche Modellantwort:
-            actual_output = getattr(metric_instance, "final_answer", "") or "(keine finale Antwort — Abbruch/Max-Runden)"
+            # The metric loop's final answer is the model's actual response:
+            actual_output = getattr(metric_instance, "final_answer", "") or "(no final answer: aborted or round limit reached)"
 
             logs = eval_logger.get_logs()
-            # Tool-Runden-Verlauf als strukturierte Zusatzinformation für die UI:
+            # Tool-round transcript as structured extra info for the UI:
             rounds_info = getattr(metric_instance, "rounds", [])
             end_reason = getattr(metric_instance, "end_reason", "")
             logs = logs + [

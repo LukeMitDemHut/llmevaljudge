@@ -1,20 +1,20 @@
 """
-Development-Tests für ToolUseMetric (Schritt 4).
+Tests for ToolUseMetric.
 
-Läuft im judge_eval-Container (deepeval installiert). Die LLM-Interaktion
-(Evaluatee-Loop + Simulation + Bewertung) wird über Mock-Clients getestet —
-deterministisch, ohne Gateway-Abhängigkeit. Der Live-Gateway-Test erfolgt separat.
+Runs inside the judge_eval container (deepeval installed). The LLM interaction
+(evaluatee loop + simulation + final evaluation) is mocked — deterministic,
+no gateway dependency.
 
-Abdeckung (Arbeitsauftrag §4):
-1. Erfolgreicher Tool-Call mit gültigen Parametern
-2. Mehrere Runden mit abhängigen simulierte Ergebnissen
-3. Max-Runden erreicht (keinerlei unabsichtlichem Verlust)
-4. Beenden durch finale Antwort ohne Tool-Calls
-5. Ungültige / nicht parsbare Tool-Calls -> 0-Punkte-Abbruch
-6. Fehlerhafte/unvollständige Judge-Ausgaben -> 0-Punkte-Abbruch
-7. Erfolgreiche Score-/Begründungs-Extraktion (inkl. Markdown-Toleranz)
+Covered cases:
+1. Successful tool call with valid parameters
+2. Multiple rounds with dependent simulated results
+3. Reaching the configured round limit
+4. Ending the interaction with a final answer (no tool calls)
+5. Invalid / unparsable tool calls -> abort with score 0
+6. Malformed / incomplete judge outputs -> abort with score 0
+7. Score + reasoning extraction (incl. markdown tolerance)
 
-Ausführung: docker exec llm-eval-judge-judge_eval-1 python /app/dev_tests_tooluse.py
+Run: docker exec <judge_eval container> python /app/dev_tests_tooluse.py
 """
 
 import json
@@ -48,7 +48,7 @@ DEF = {
 }
 
 class JudgeStub:
-    """Vorbild des echten Judge-Wrappers (hat api_base/api_key/model_name)."""
+    """Mimics the real judge model wrapper (exposes api_base/api_key/model_name)."""
     def __init__(self):
         self.api_base = "http://stub-gateway/v1"
         self.api_key = "stub-key"
@@ -75,7 +75,7 @@ def call_response(finish, content="", tool_calls=None):
     return {"finish_reason": finish, "content": content, "tool_calls": tool_calls or []}
 
 # --------------------------------------------------------------------------- #
-# 1. Erfolgreicher Tool-Call mit gültigen Parametern + Ende durch finale Antwort
+# 1. Successful tool call with valid parameters + final answer ending
 # --------------------------------------------------------------------------- #
 def test_success_single_round():
     m = make_metric()
@@ -97,17 +97,17 @@ def test_success_single_round():
     assert m.final_answer == "Ein Bruder von Alice hat drei Schwestern."
     assert len(m.rounds) == 1
     assert m.rounds[0]["tool_calls"][0]["arguments"] == {"query": "Alice puzzle", "max_results": 5}
-    # Evaluatee-Call bekommt tools-Schema:
+    # Evaluatee call must carry the OpenAI tool schema:
     tools_arg = ev_call.call_args_list[0].kwargs.get("tools") or ev_call.call_args_list[0][2]
     assert tools_arg[0]["function"]["name"] == "doc_search"
     assert tools_arg[0]["function"]["parameters"]["required"] == ["query"]
-    # Sim-Call bekam JSON-only-Anweisung:
+    # Simulation call must carry the JSON-only instruction:
     sim_msgs = sim_call.call_args[0][1]
     assert '{"result":' in sim_msgs[0]["content"]
     print("TEST 1 OK: success single round -> 0.9, end=final_answer")
 
 # --------------------------------------------------------------------------- #
-# 2. Mehrere Runden mit abhängigen simulierten Ergebnissen
+# 2. Multiple rounds with dependent simulated results
 # --------------------------------------------------------------------------- #
 def test_multi_round_dependency():
     m = make_metric()
@@ -128,18 +128,18 @@ def test_multi_round_dependency():
 
     assert score == 1.0
     assert len(m.rounds) == 2
-    # Runde 2 Simulation bekam Verlauf von Runde 1 (kontextabhängig):
+    # Round 2 simulation must receive the round 1 history (context propagation):
     second_sim_prompt = sim_call.call_args_list[1][0][1][1]["content"]
     assert "BISHERIGE SIMULIERTE ERGEBNISSE" in second_sim_prompt and "puzzle" in second_sim_prompt
-    assert "doc_42" in second_sim_prompt  # runde-1-Ergebnis im Kontext
+    assert "doc_42" in second_sim_prompt  # round 1 result present in context
     print("TEST 2 OK: 2 dependent rounds, context propagation works")
 
 # --------------------------------------------------------------------------- #
-# 3. Max-Runden erreicht
+# 3. Round limit reached
 # --------------------------------------------------------------------------- #
 def test_max_rounds():
     m = make_metric(max_rounds=2)
-    # Modell ruft IMMER wieder Tools auf (4x, mehr als max)
+    # model keeps calling tools (4x, more than the limit)
     forever = [{"id": f"c{i}", "name": "doc_search", "arguments": '{"query": "q%d"}' % i} for i in range(1, 5)]
     evaluatee = [call_response("tool_calls", tool_calls=[tc]) for tc in forever]
     sims = ['{"result": "nichts gefunden."}'] * 4
@@ -156,7 +156,7 @@ def test_max_rounds():
     print("TEST 3 OK: loop hard-stops at max_tool_rounds; evaluation still runs")
 
 # --------------------------------------------------------------------------- #
-# 4. Fehler: nicht-parsbare Tool-Arguments -> 0
+# 4. Error: unparsable tool arguments -> 0
 # --------------------------------------------------------------------------- #
 def test_unparsable_tool_call():
     m = make_metric()
@@ -174,7 +174,7 @@ def test_unparsable_tool_call():
     print("TEST 4 OK: unparsable tool arguments -> 0.0, hard stop, no final eval")
 
 # --------------------------------------------------------------------------- #
-# 5. Fehler: Simulation schlägt fehl (Judge-Ausgabe unverständlich) -> 0
+# 5. Error: simulation fails (unintelligible judge output) -> 0
 # --------------------------------------------------------------------------- #
 def test_simulation_failure():
     m = make_metric()
@@ -188,17 +188,17 @@ def test_simulation_failure():
     assert score == 0.0
     assert m.end_reason == ROUND_END_ERROR
     assert "simulation failed" in m.reason
-    # Retry-Verhalten: 1 Sim-Call, dann Abbruch (keine Endlosschleife, kein stiller Verlust)
+    # exactly one simulation call, then hard abort (no retry loop, no silent loss)
     assert sim_call.call_count == 1
     assert eval_call.call_count == 0
     print("TEST 5 OK: broken judge simulation output -> 0.0, no silent loss")
 
 # --------------------------------------------------------------------------- #
-# 6. Fehler: finale Bewertung unparsbar / Score out of range -> 0
+# 6. Error: final evaluation unparsable / score out of range -> 0
 # --------------------------------------------------------------------------- #
 def test_bad_final_evaluation():
     m = make_metric()
-    evaluatee = [call_response("stop", content="direkte Antwort ohne Tool.")]  # keine Tools nötig für diesen Test
+    evaluatee = [call_response("stop", content="direct answer without tools")]
     with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
          patch.object(m.evaluation_client, "chat", side_effect=[
              {"finish_reason": "stop", "content": "TOTAL GIBBERISH no json", "tool_calls": []}]):
@@ -209,7 +209,7 @@ def test_bad_final_evaluation():
     assert "unparsable" in m.reason.lower()
     print("TEST 6a OK: garbage final evaluation -> 0.0")
 
-    # Score out of range (11 von 10):
+    # Score out of range (11 of 10):
     m2 = make_metric()
     evaluatee2 = [call_response("stop", content="Antwort.")]
     with patch.object(m.evaluatee, "chat", side_effect=evaluatee2), \
@@ -220,7 +220,7 @@ def test_bad_final_evaluation():
     print("TEST 6b OK: out-of-range score -> 0.0")
 
 # --------------------------------------------------------------------------- #
-# 7. Markdown-tolerante Score-Extraktion (Judge antwortet mit **SCORE:**-Stil)
+# 7. Markdown-tolerant score extraction (**SCORE:**-style judge answer)
 # --------------------------------------------------------------------------- #
 def test_markdown_score_extraction():
     m = make_metric()
@@ -237,7 +237,7 @@ def test_markdown_score_extraction():
     print("TEST 7 OK: markdown-fallback extraction works (7.5 -> 0.75)")
 
 # --------------------------------------------------------------------------- #
-# 8. Tool-Schema-Übergabe: 'number' Parameter korrekt im JSON-Schema (Bonus)
+# 8. Tool schema handover: 'number' parameter mapped correctly to the JSON schema
 # --------------------------------------------------------------------------- #
 def test_schema_type_mapping():
     m = make_metric()

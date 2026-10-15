@@ -1,17 +1,19 @@
 """
-ToolUseMetric — Evaluation der Werkzeugnutzung eines LLMs.
+ToolUseMetric — evaluates how well an LLM uses provided (simulated) tools.
 
-Ablauf (siehe Arbeitsauftrag §2.3):
-1. Das zu evaluierende Modell erhält Aufgabe + Werkzeuge (OpenAI function calling).
-2. Rundenloop: tool_calls -> Simulations-Judge (simulation_prompt + Verlauf) -> role:tool Message -> nächste Runde.
-   Abbruch: max_tool_rounds erreicht, keine Tool-Calls in der Antwort (finale Antwort), technischer Fehler.
-3. Finale Bewertung: separates Evaluate-LLM mit evaluation_prompt und dem vollständigen Verlauf.
-   Intern 0-10 (DeepEval-G-Eval-Konvention), Ergebnis 0-1 (Prozent).
+Flow:
+1. The evaluated model receives the task plus tool definitions (OpenAI function calling).
+2. Round loop: tool_calls -> simulation judge (simulation_prompt + conversation history)
+   -> role:"tool" message -> next round. The loop ends when the configured round
+   limit is reached, when the model answers without tool calls, or on technical errors
+   (errors always score 0 — a silently dropped evaluation must not happen).
+3. Final evaluation: a separate evaluation call with the user-defined evaluation_prompt,
+   the full transcript and an optional expected-behavior block. Internal scale is
+   0-10, the reported score is 0-1.
 
-Wichtig (Gateway-Erkenntnis 15.10.26): vLLM 0.22 am Gateway verliert tool_calls im
-NON-STREAMING-Modus bei gpt-oss-120b (content:""). Es wird daher IMMER gestreamt
-(sowohl für das Evaluatee als auch bei Tool-Emission), Qwen funktioniert in beiden
-Modi — Streaming ist hier der gemeinsame, zuverlässige Pfad.
+Note: all completion calls use streaming. The gateway's non-streaming endpoint
+drops `tool_calls` for gpt-oss-120b (vLLM aggregation quirk); Qwen works in both
+modes, streaming is the reliable common path.
 """
 
 import json
@@ -22,21 +24,21 @@ from deepeval.metrics import BaseMetric
 from deepeval.test_case import LLMTestCase
 from eval_logger import eval_logger
 
-# Abbruchgründe für den Rundenloop
+# Reasons why the tool interaction loop ended
 ROUND_END_MAX_ROUNDS = "max_rounds_reached"
 ROUND_END_FINAL_ANSWER = "final_answer_no_tool_calls"
 ROUND_END_ERROR = "error"
 
-ERROR_SCORE = 0.0  # Fehler führen zu 0 Punkten (Arbeitsauftrag §2.2)
+ERROR_SCORE = 0.0
 
 
 class OpenAIClientStreaming:
     """
-    Minimaler OpenAI-kompatibler Streaming-Client für Chat-Completions.
+    Minimal OpenAI-compatible streaming client for chat completions.
 
-    Warum eigener Client statt openai-Paket: das openai-Paket abstrahiert
-    Streaming sauber, aber wir brauchen explizite Kontrolle über Tool-Call-Deltas
-    und die Gateway-Quirks (non-streaming verliert tool_calls bei gpt-oss).
+    A dedicated client is used instead of the openai package because tool-call
+    deltas need explicit handling and the gateway drops tool_calls in
+    non-streaming completions for gpt-oss-120b.
     """
 
     def __init__(self, base_url: str, api_key: str):
@@ -45,10 +47,10 @@ class OpenAIClientStreaming:
 
     def chat(self, model: str, messages: list, tools: Optional[list] = None) -> dict:
         """
-        Führt einen (immer gestreamten) Chat-Completion-Call aus.
+        Executes a streaming chat completion call.
 
         Returns: {"finish_reason": str|None, "content": str,
-                  "tool_calls": [{"id", "name", "arguments"}], "raw": <letzter chunk>}
+                  "tool_calls": [{"id", "name", "arguments"}]}
         """
         import requests as _requests
 
@@ -130,37 +132,29 @@ class ToolUseMetric(BaseMetric):
         "simulation_prompt": str,
         "evaluation_prompt": str,
         "max_tool_rounds": int,
-        "expected_behavior": Optional[str]  # freiwilliger Ergänzungsblock — wird an den Bewertungsprompt angehängt
+        "expected_behavior": Optional[str]  # optional expected-behavior block, appended to the evaluation prompt
     }
     """
 
     def __init__(
         self,
-        model,           # Judge/DeepEval model object (Judge wrapper) — final evaluation
+        model,           # judge model wrapper (DeepEvalBaseLLM) used for simulation + final evaluation
         evaluatee_url: str,
         evaluatee_key: str,
         evaluatee_name: str,
         definition: dict,
         threshold: float = 0.5,
-        include_reason: bool = True,
-        strict_mode: bool = False,
-        async_mode: bool = True,
         system_prompt: str = "",
     ):
         self.model = model
         self.threshold = threshold
-        self.include_reason = include_reason
-        self.strict_mode = strict_mode
-        self.async_mode = async_mode
 
-        # Evaluatee (zu evaluierendes Modell)
+        # Model under evaluation
         self.evaluatee = OpenAIClientStreaming(evaluatee_url, evaluatee_key)
         self.evaluatee_name = evaluatee_name
 
-        # Simulation client + finale Bewertung: separater Judge-Wrapper ist vorgesehen
-        # (Simulation vs. Bewertung sind zwei getrennte Prompts/Aufgaben — §2.3). Beide
-        # sprechen dieselbe API an (Judge-Gateway), sind aber eigenständige Clients, damit
-        # Test-Mocks (und spätere abweichende Judge-Modelle) getrennt bleiben.
+        # Simulation and final evaluation are separate judge tasks (separate prompts).
+        # Both go through the same judge API but use independent client instances.
         self._judge_api = self._extract_judge_api_info(model)
         self.simulation_client = OpenAIClientStreaming(self._judge_api["url"], self._judge_api["key"])
         self.evaluation_client = OpenAIClientStreaming(self._judge_api["url"], self._judge_api["key"])
@@ -173,8 +167,8 @@ class ToolUseMetric(BaseMetric):
         self.max_tool_rounds = int(definition.get("max_tool_rounds", 5))
         self.system_prompt = system_prompt
 
-        # Ergebnis-Metadaten (UI-Verlauf)
-        self.rounds: list = []          # pro Runde: {"round", "tool_calls", "simulated_result", "finish_reason"}
+        # Result metadata (surfaced in the UI)
+        self.rounds: list = []          # one entry per round: {"round", "tool_calls", "simulated", "finish_reason"}
         self.final_answer: str = ""
         self.end_reason: str = ""
         self.evaluation_notes: str = ""
@@ -189,7 +183,7 @@ class ToolUseMetric(BaseMetric):
         })
 
     def _extract_judge_api_info(self, judge_model) -> dict:
-        """Judge-Wrapper-Objekt -> API-Daten (Judge speichert api_base/api_key)."""
+        """Extracts API connection data from the judge model wrapper."""
         return {
             "url": judge_model.api_base,
             "key": judge_model.api_key,
@@ -197,20 +191,18 @@ class ToolUseMetric(BaseMetric):
         }
 
     # ------------------------------------------------------------------ #
-    # Tool-Schema -> OpenAI tools-Parameter
+    # Tool schema -> OpenAI tools parameter
     # ------------------------------------------------------------------ #
 
     def _tools_for_openai(self) -> list:
-        """Wandelt die Tool-Definitionen in das OpenAI function-calling-Format."""
+        """Converts the tool definitions into OpenAI function-calling format."""
         out = []
         for tool in self.tools:
             params = tool.get("parameters") or []
             properties = {}
             required = []
             for p in params:
-                ptype = p.get("type", "string")
-                # number -> integer nur wenn explizit gewünscht; JSON-Schema kennt beides.
-                prop = {"type": ptype}
+                prop = {"type": p.get("type", "string")}
                 if p.get("description"):
                     prop["description"] = p["description"]
                 properties[p["name"]] = prop
@@ -236,7 +228,7 @@ class ToolUseMetric(BaseMetric):
 
     def _build_simulation_messages(self, task_input: str, round_index: int,
                                    tool_call: dict, history_summary: str) -> list:
-        """Baut den Judge-Prompt simulierter Werkzeugergebnisse (vom Bewertungsprompt GETRENNT)."""
+        """Builds the judge prompt for simulated tool results (separate from the evaluation prompt)."""
         system = (
             "Du bist ein Werkzeug-Simulator in einer LLM-Evaluation. "
             "Du simulierst die Ergebnisse von Werkzeugaufrufen eines zu evaluierenden Sprachmodells. "
@@ -260,7 +252,7 @@ class ToolUseMetric(BaseMetric):
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
     def _parse_simulation_response(self, response: str) -> str:
-        """Extrahiert das 'result'-Feld aus der JSON-Antwort des Simulators. Fehlt es -> Fehler."""
+        """Extracts the 'result' field from the simulator's JSON response."""
         text = (response or "").strip()
         m = re.search(r"\{.*\}", text, re.DOTALL)
         if not m:
@@ -276,17 +268,17 @@ class ToolUseMetric(BaseMetric):
 
     def _simulate_tool_result(self, task_input: str, round_index: int,
                               tool_call: dict, history_summary: str) -> str:
-        """Ruft den Judge als Werkzeug-Simulator."""
+        """Requests one simulated tool result from the judge."""
         messages = self._build_simulation_messages(task_input, round_index, tool_call, history_summary)
         resp = self.simulation_client.chat(self._judge_api["name"], messages, tools=None)
         return self._parse_simulation_response(resp["content"])
 
     # ------------------------------------------------------------------ #
-    # Finale Bewertung (G-Eval-artig)
+    # Final evaluation
     # ------------------------------------------------------------------ #
 
     def _build_evaluation_messages(self, test_case: LLMTestCase, conversation: list) -> list:
-        """Finale Bewertung: separater Prompt mit task, tools, beiden Prompts, vollem Verlauf."""
+        """Builds the final evaluation prompt: task, tools, both user prompts, full transcript."""
         system = (
             "Du bist ein präziser LLM-Evaluierungs-Richter (LLM-as-a-Judge). "
             "Bewerte die Werkzeugnutzung eines Sprachmodells streng nach den Kriterien, "
@@ -319,7 +311,7 @@ class ToolUseMetric(BaseMetric):
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
     def _format_conversation(self, conversation: list) -> str:
-        """Konversation -> lesbarer Verlauf mit Rundenmarkierung."""
+        """Formats the conversation as a readable transcript with round markers."""
         lines = []
         round_no = 0
         for msg in conversation:
@@ -345,11 +337,11 @@ class ToolUseMetric(BaseMetric):
         return "\n\n".join(lines)
 
     def _parse_evaluation_response(self, response: str) -> dict:
-        """Extrahiert score(0-10) + reasoning aus der Bewertungsantwort; tolerant gegen Markdown."""
+        """Extracts score (0-10) and reasoning from the evaluation response (markdown-tolerant)."""
         text = (response or "").strip()
 
-        # Fallback-Extraktion (vor JSON-Versuch): SCORE:-Stil, auch mit Markdown-Fettung
-        # wie "**SCORE:** 7.5" (bekanntes Judge-Modell-Verhalten, vgl. TALE-Parser-Fix)
+        # Fallback pattern first: SCORE-style lines, also with markdown bolding
+        # like "**SCORE:** 7.5" (observed judge model behaviour, cf. TALE parser fix)
         sm = re.search(r"(?:\*\*)?\s*SCORE:?\s*(?:\*\*)?\s*:?\s*([0-9]+(?:\.[0-9]+)?)", text, re.IGNORECASE)
         sm_json = re.search(r"\{.*\}", text, re.DOTALL)
 
@@ -368,7 +360,7 @@ class ToolUseMetric(BaseMetric):
                         return {"score": score, "reasoning": reasoning.strip()}
                     raise ValueError(f"Evaluation score out of range 0-10: {score}")
             except json.JSONDecodeError:
-                pass  # fällt auf den SCORE-Fallback unten durch
+                pass  # falls through to the SCORE fallback below
 
         if sm:
             return {"score": float(sm.group(1)), "reasoning": text}
@@ -376,7 +368,7 @@ class ToolUseMetric(BaseMetric):
         raise ValueError(f"Evaluation response has no extractable score: {text[:300]}")
 
     # ------------------------------------------------------------------ #
-    # measure() — der Hauptloop
+    # measure() — the main loop
     # ------------------------------------------------------------------ #
 
     def measure(self, test_case: LLMTestCase, *args, **kwargs) -> float:
@@ -385,8 +377,8 @@ class ToolUseMetric(BaseMetric):
             "expected_output": bool(getattr(test_case, "expected_output", None)),
         })
 
+        conversation = []
         try:
-            conversation = []
             sys_msg = self.system_prompt or (
                 "Nutze die verfügbaren Werkzeuge, um die Aufgabe zu lösen. "
                 "Rufe Werkzeuge auf, wenn sie dir weiterhelfen; beantworte die Aufgabe "
@@ -396,7 +388,7 @@ class ToolUseMetric(BaseMetric):
             conversation.append({"role": "user", "content": test_case.input})
 
             tools_openai = self._tools_for_openai()
-            history_summary = ""       # kontextabhängige Simulation
+            history_summary = ""       # feeds context-dependent simulation
             round_no = 0
             self.rounds = []
 
@@ -426,7 +418,6 @@ class ToolUseMetric(BaseMetric):
                         {"round": round_no, "answer_length": len(self.final_answer)})
                     break
 
-                # Fall: Tool-Call(s) -> simulieren
                 if finish != "tool_calls":
                     eval_logger.info("tool_use_metric",
                         f"Tool calls present but finish_reason={finish}; continuing as tool round",
@@ -450,7 +441,7 @@ class ToolUseMetric(BaseMetric):
                     try:
                         parsed_args = json.loads(tc["arguments"]) if tc["arguments"].strip() else {}
                     except json.JSONDecodeError:
-                        # Ungültiger, nicht parsbarer Tool-Call -> Abbruch mit 0 Punkten (§2.2)
+                        # Unparsable tool call -> hard stop with 0 points
                         err = f"Round {round_no}, call {i+1}: unparsable tool arguments: {tc['arguments'][:200]}"
                         eval_logger.decision("tool_use_metric", "Tool call not parseable; scoring 0", {"error": err})
                         self.end_reason = ROUND_END_ERROR
@@ -485,38 +476,36 @@ class ToolUseMetric(BaseMetric):
 
                 self.rounds.append(round_record)
 
-            # --- Loop beendet: finale Bewertung ---
+            # Loop ended: run the final evaluation
             return self._finalize_evaluation(test_case, conversation)
 
         except Exception as e:
-            # Generischer Abbruch: unbemerkter Verlust ist ausgeschlossen (§2.2)
+            # Generic abort: never lose an evaluation silently
             err = f"Evaluation aborted: {type(e).__name__}: {str(e)}"
             eval_logger.log_error("tool_use_metric", err, {"traceback": str(e)})
             self.end_reason = ROUND_END_ERROR
             self.evaluation_notes = err
-            try:
-                self._finish_with_error(test_case, getattr(self, "rounds", []), err)
-            except Exception:
-                self.score = ERROR_SCORE
-                self.reason = f"Evaluation fehlgeschlagen: {err}"
-                self.success = False
+            self.score = ERROR_SCORE
+            self.success = False
+            conv_str = self._format_conversation(conversation) if conversation else ""
+            self.reason = (
+                f"Evaluation mit Fehler 0 Punkte beendet. FEHLER: {err}\n\n"
+                f"ENDGRUND: {self.end_reason}\n\n"
+                f"VERLAUF BIS ZUM FEHLER:\n{conv_str[:3000]}"
+            )
             return self.score
 
     def _finish_with_error(self, test_case: LLMTestCase, conversation: list, error: str):
-        """Setzt Score 0 + Begründung mit Verlaufsinformationen (Fehlerfall §2.3)."""
+        """Sets score 0 and a reason containing the error plus the transcript so far."""
         self.score = ERROR_SCORE
         self.success = False
-        conv_str = self._format_conversation(self._as_conversation(conversation))
+        conv_str = self._format_conversation(conversation)
         self.reason = (
             f"Evaluation mit Fehler 0 Punkte beendet. FEHLER: {error}\n\n"
             f"ENDGRUND: {self.end_reason}\n\n"
             f"VERLAUF BIS ZUM FEHLER:\n{conv_str[:3000]}"
         )
         self.evaluation_notes = error
-
-    def _as_conversation(self, conversation_or_rounds):
-        """Akzeptiert echte Konversation (list of messages) und gibt sie unverändert zurück."""
-        return conversation_or_rounds
 
     def _finalize_evaluation(self, test_case: LLMTestCase, conversation: list) -> float:
         eval_logger.info("tool_use_metric", "Starting final evaluation", {
@@ -538,11 +527,11 @@ class ToolUseMetric(BaseMetric):
             self._finish_with_error(test_case, conversation, err)
             return self.score
 
-        internal_score = parsed["score"]           # 0-10
-        final_score = round(internal_score / 10.0, 4)  # 0-1 Prozent
+        internal_score = parsed["score"]           # 0-10 scale
+        final_score = round(internal_score / 10.0, 4)  # 0-1 percentage
         reason = parsed["reasoning"]
 
-        # Begründung um Verlaufsmetadaten ergänzen
+        # Prefix the judge reasoning with structured transcript metadata
         rounds_summary = "; ".join(
             f"R{r['round']}: " + ", ".join(
                 f"{tc['name']}({json.dumps(tc['arguments'], ensure_ascii=False)[:60]})"
