@@ -410,6 +410,108 @@
                         TALE definition is empty or not configured.
                     </div>
                 </div>
+                <div v-else-if="metric.type === 'tool-use'">
+                    <div v-if="metric.definition">
+                        <!-- Tools -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted"
+                                >Tools</label
+                            >
+                            <div
+                                v-for="(tool, index) in metric.definition
+                                    .tools"
+                                :key="index"
+                                class="border rounded p-2 mb-2 bg-light"
+                            >
+                                <div class="d-flex align-items-center mb-1">
+                                    <span class="badge bg-primary me-2">
+                                        {{ index + 1 }}. {{ tool.name }}
+                                    </span>
+                                </div>
+                                <div class="small text-muted mb-2">
+                                    {{ tool.description }}
+                                </div>
+                                <div
+                                    v-if="
+                                        tool.parameters &&
+                                        tool.parameters.length
+                                    "
+                                    class="small"
+                                >
+                                    <div
+                                        v-for="param in tool.parameters"
+                                        :key="param.name"
+                                    >
+                                        <code>{{ param.name }}</code>
+                                        <span class="text-muted">
+                                            ({{ param.type }}
+                                            <span
+                                                v-if="param.required"
+                                                class="text-danger"
+                                                >required</span
+                                            >)
+                                        </span>
+                                        <span
+                                            v-if="param.description"
+                                            class="text-muted"
+                                        >
+                                            — {{ param.description }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div v-else class="small text-muted">
+                                    No parameters
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Simulation Prompt -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted"
+                                >Simulation Prompt</label
+                            >
+                            <div
+                                class="form-control-plaintext bg-light rounded p-2"
+                            >
+                                {{
+                                    metric.definition.simulation_prompt ||
+                                    "No simulation prompt specified"
+                                }}
+                            </div>
+                        </div>
+
+                        <!-- Evaluation Prompt -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted"
+                                >Evaluation Prompt</label
+                            >
+                            <div
+                                class="form-control-plaintext bg-light rounded p-2"
+                            >
+                                {{
+                                    metric.definition.evaluation_prompt ||
+                                    "No evaluation prompt specified"
+                                }}
+                            </div>
+                        </div>
+
+                        <!-- Max Tool Rounds -->
+                        <div>
+                            <label class="form-label fw-bold text-muted"
+                                >Max Tool-Call Rounds</label
+                            >
+                            <div class="form-control-plaintext">
+                                <span class="badge bg-secondary fs-6">
+                                    {{ metric.definition.max_tool_rounds }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="alert alert-warning">
+                        <Icon name="warning" class="me-1" />
+                        Tool Use definition is empty or not configured.
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -453,6 +555,7 @@ export default {
                 "g-eval": "G-Eval",
                 dag: "DAG",
                 tale: "TALE",
+                "tool-use": "Tool Use",
             };
             return typeLabels[type] || type || "Unknown";
         },

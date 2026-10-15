@@ -71,8 +71,12 @@ class MetricController extends BaseApiController
     {
         $data = $this->getRequestData($request);
 
-        $metric = new Metric();
-        $this->populateMetricFromData($metric, $data);
+        try {
+            $metric = new Metric();
+            $this->populateMetricFromData($metric, $data);
+        } catch (\InvalidArgumentException $e) {
+            return $this->jsonResponse(['error' => 'Validation failed', 'violations' => ['definition' => $e->getMessage()]], Response::HTTP_BAD_REQUEST);
+        }
 
         $validationError = $this->handleValidationErrors($metric);
         if ($validationError) {
@@ -94,7 +98,12 @@ class MetricController extends BaseApiController
         }
 
         $data = $this->getRequestData($request);
-        $this->populateMetricFromData($metric, $data);
+
+        try {
+            $this->populateMetricFromData($metric, $data);
+        } catch (\InvalidArgumentException $e) {
+            return $this->jsonResponse(['error' => 'Validation failed', 'violations' => ['definition' => $e->getMessage()]], Response::HTTP_BAD_REQUEST);
+        }
 
         $validationError = $this->handleValidationErrors($metric);
         if ($validationError) {
@@ -183,6 +192,8 @@ class MetricController extends BaseApiController
                 }
 
                 $metric->setDefinition($definition);
+            } elseif (isset($data['type']) && $data['type'] === 'tool-use') {
+                $metric->setDefinition($this->normalizeToolUseDefinition($data['definition']));
             } else {
                 $metric->setDefinition($data['definition']);
             }
@@ -206,5 +217,141 @@ class MetricController extends BaseApiController
                 $metric->setRatingModel($ratingModel);
             }
         }
+    }
+
+    /**
+     * Normalizes and validates a tool-use metric definition.
+     *
+     * Expected structure:
+     * {
+     *   "tools": [
+     *     {
+     *       "name": "search_documents",
+     *       "description": "Searches the internal document store",
+     *       "parameters": [
+     *         {
+     *           "name": "query",
+     *           "type": "string",
+     *           "description": "The search query",
+     *           "required": true
+     *         }
+     *       ]
+     *     }
+     *   ],
+     *   "simulation_prompt": "...",
+     *   "evaluation_prompt": "...",
+     *   "max_tool_rounds": 5
+     * }
+     *
+     * @param mixed $definition Raw definition from the request
+     * @return array Normalized definition
+     * @throws \InvalidArgumentException On structural violations
+     */
+    private function normalizeToolUseDefinition(mixed $definition): array
+    {
+        if (!is_array($definition)) {
+            throw new \InvalidArgumentException('tool-use definition must be an object/array');
+        }
+
+        $allowedTypes = ['string', 'number', 'boolean', 'object', 'array'];
+
+        // --- tools ---
+        if (!isset($definition['tools']) || !is_array($definition['tools']) || count($definition['tools']) === 0) {
+            throw new \InvalidArgumentException('tool-use definition requires at least one tool');
+        }
+
+        $tools = [];
+        $seenNames = [];
+        foreach ($definition['tools'] as $i => $tool) {
+            if (!is_array($tool)) {
+                throw new \InvalidArgumentException(sprintf('tools[%d] must be an object', $i));
+            }
+
+            $name = $tool['name'] ?? null;
+            if (!is_string($name) || trim($name) === '') {
+                throw new \InvalidArgumentException(sprintf('tools[%d].name is required', $i));
+            }
+            if (isset($seenNames[$name])) {
+                throw new \InvalidArgumentException(sprintf('tools[%d].name "%s" is not unique', $i, $name));
+            }
+            $seenNames[$name] = true;
+
+            $description = $tool['description'] ?? null;
+            if (!is_string($description) || trim($description) === '') {
+                throw new \InvalidArgumentException(sprintf('tools[%d].description is required', $i));
+            }
+
+            $parameters = $tool['parameters'] ?? [];
+            if (!is_array($parameters)) {
+                throw new \InvalidArgumentException(sprintf('tools[%d].parameters must be an array', $i));
+            }
+
+            $normalizedParams = [];
+            $seenParamNames = [];
+            foreach ($parameters as $j => $param) {
+                if (!is_array($param)) {
+                    throw new \InvalidArgumentException(sprintf('tools[%d].parameters[%d] must be an object', $i, $j));
+                }
+
+                $pName = $param['name'] ?? null;
+                if (!is_string($pName) || trim($pName) === '') {
+                    throw new \InvalidArgumentException(sprintf('tools[%d].parameters[%d].name is required', $i, $j));
+                }
+                if (isset($seenParamNames[$pName])) {
+                    throw new \InvalidArgumentException(sprintf('tools[%d].parameters[%d].name "%s" is not unique', $i, $j, $pName));
+                }
+                $seenParamNames[$pName] = true;
+
+                $pType = $param['type'] ?? 'string';
+                if (!in_array($pType, $allowedTypes, true)) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'tools[%d].parameters[%d].type "%s" is invalid (allowed: %s)',
+                        $i, $j, is_string($pType) ? $pType : gettype($pType), implode(', ', $allowedTypes)
+                    ));
+                }
+
+                $normalizedParams[] = [
+                    'name' => $pName,
+                    'type' => $pType,
+                    'description' => is_string($param['description'] ?? null) ? $param['description'] : '',
+                    'required' => (bool) ($param['required'] ?? false),
+                ];
+            }
+
+            $tools[] = [
+                'name' => $name,
+                'description' => $description,
+                'parameters' => $normalizedParams,
+            ];
+        }
+
+        // --- simulation_prompt ---
+        $simulationPrompt = $definition['simulation_prompt'] ?? null;
+        if (!is_string($simulationPrompt) || trim($simulationPrompt) === '') {
+            throw new \InvalidArgumentException('tool-use definition requires a non-empty simulation_prompt');
+        }
+
+        // --- evaluation_prompt ---
+        $evaluationPrompt = $definition['evaluation_prompt'] ?? null;
+        if (!is_string($evaluationPrompt) || trim($evaluationPrompt) === '') {
+            throw new \InvalidArgumentException('tool-use definition requires a non-empty evaluation_prompt');
+        }
+
+        // --- max_tool_rounds ---
+        $maxRounds = $definition['max_tool_rounds'] ?? 5;
+        if (!is_int($maxRounds) && !(is_string($maxRounds) && ctype_digit($maxRounds))) {
+            throw new \InvalidArgumentException('tool-use max_tool_rounds must be an integer');
+        }
+        $maxRounds = (int) $maxRounds;
+        if ($maxRounds < 1 || $maxRounds > 20) {
+            throw new \InvalidArgumentException('tool-use max_tool_rounds must be between 1 and 20');
+        }
+
+        return [
+            'tools' => $tools,
+            'simulation_prompt' => $simulationPrompt,
+            'evaluation_prompt' => $evaluationPrompt,
+            'max_tool_rounds' => $maxRounds,
+        ];
     }
 }
