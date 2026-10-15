@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 from models import Metric, ModelInfo
 from deepeval.metrics import GEval, DAGMetric
 from deepeval.metrics.dag import (
@@ -22,13 +23,19 @@ class MetricCreator:
     Supports both G-Eval and DAG metric types with proper parameter mapping
     and structure conversion from frontend JSON to DeepEval objects.
     """
-    def __init__(self, metric: Metric):
+    def __init__(self, metric: Metric, model: Optional[ModelInfo] = None, system_prompt: str = ""):
         self.metric = metric
+        self.system_prompt = system_prompt
+        # Evaluatee model info (zu evaluierendes Modell) — von Tool-Use-Metriken benötigt;
+        # für die bestehenden Metriktypen bleibt das Verhalten unverändert.
+        self.evaluatee = model if model is not None else self.metric.model
         eval_logger.info("metric_creator", "Initialized metric creator", {
             "metric_name": metric.name,
             "metric_type": metric.type,
             "metric_params": metric.param,
-            "judge_model": metric.model.name
+            "judge_model": metric.model.name,
+            "evaluatee_model": self.evaluatee.name,
+            "system_prompt_passed": bool(system_prompt)
         })
 
     def create_metric(self):
@@ -199,6 +206,28 @@ class MetricCreator:
                 
                 return dag_metric
             
+            case "tool-use":
+                eval_logger.decision("metric_creator", "Creating Tool Use metric", {
+                    "metric_type": "tool-use"
+                })
+
+                from toolusemetric import ToolUseMetric
+
+                definition = metric_definition
+                if not definition or not definition.get("tools"):
+                    raise ValueError("tool-use definition with at least one tool required")
+
+                tooluse_metric = ToolUseMetric(
+                    model=judge_model,
+                    evaluatee_url=self.evaluatee.url,
+                    evaluatee_key=self.evaluatee.key,
+                    evaluatee_name=self.evaluatee.name,
+                    definition=definition,
+                    threshold=getattr(self.metric, 'threshold', 0.5),
+                    system_prompt=getattr(self, 'system_prompt', '') or "",
+                )
+                return tooluse_metric
+
             case _:
                 eval_logger.decision("metric_creator", "Unknown metric type encountered", {
                     "metric_type": self.metric.type,
