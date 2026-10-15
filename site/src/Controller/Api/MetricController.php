@@ -200,7 +200,11 @@ class MetricController extends BaseApiController
         }
 
         if (isset($data['param'])) {
-            if (is_array($data['param'])) {
+            if (isset($data['type']) && $data['type'] === 'tool-use') {
+                // tool-use metrics have a fixed evaluation context (input + actual_output);
+                // the Parameters checkboxes are hidden in the UI for this type
+                $metric->setParam([MetricParam::INPUT, MetricParam::ACTUAL_OUTPUT]);
+            } elseif (is_array($data['param'])) {
                 $params = array_map(function ($p) {
                     return is_string($p) ? MetricParam::tryFrom($p) : $p;
                 }, $data['param']);

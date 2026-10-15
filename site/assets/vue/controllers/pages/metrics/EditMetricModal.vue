@@ -66,6 +66,7 @@
 
     <InputMultiCheckbox
         v-model="metric.param"
+        v-if="metric.type !== 'tool-use'"
         label="Parameters"
         :options="availableParams"
         helpText="Select which parameters this metric will use for evaluation"
