@@ -495,6 +495,21 @@
                             </div>
                         </div>
 
+                        <!-- Erwartungshorizont (optional) -->
+                        <div
+                            v-if="metric.definition.expected_behavior"
+                            class="mb-3"
+                        >
+                            <label class="form-label fw-bold text-muted"
+                                >Erwartungshorizont</label
+                            >
+                            <div
+                                class="form-control-plaintext bg-light rounded p-2"
+                            >
+                                {{ metric.definition.expected_behavior }}
+                            </div>
+                        </div>
+
                         <!-- Max Tool Rounds -->
                         <div>
                             <label class="form-label fw-bold text-muted"

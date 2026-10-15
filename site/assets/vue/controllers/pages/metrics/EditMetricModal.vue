@@ -202,6 +202,7 @@ export default {
                     tools: [],
                     simulation_prompt: "",
                     evaluation_prompt: "",
+                    expected_behavior: "",
                     max_tool_rounds: 5,
                 };
             } else if (
