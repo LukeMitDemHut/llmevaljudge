@@ -1,0 +1,14 @@
+/**
+ * jsonschema-builder-vue renders PrimeVue overlays (select dropdowns, dialogs)
+ * appended to <body> with the PrimeVue default z-index (1001). Bootstrap's
+ * modal stack sits at 1050–1055, so the dropdowns open BEHIND the metric
+ * editor modal and every option click appears to do nothing. Lift the
+ * library's overlay layer above Bootstrap's modal stack.
+ */
+
+.p-overlay,
+.p-select-overlay,
+.p-dialog,
+.p-tooltip {
+    z-index: 1100 !important;
+}
