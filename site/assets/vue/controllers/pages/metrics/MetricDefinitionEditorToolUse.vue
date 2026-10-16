@@ -67,6 +67,7 @@
                     class="mt-3"
                     :items="responseAccordionItems"
                     :accordionId="'toolResponseAccordion' + index"
+                    active="response"
                 >
                     <template v-slot:response-pane>
                         <p class="text-muted small mb-2">
@@ -245,6 +246,31 @@ export default {
                 this.$refs.promptsGroup.reset();
             }
         },
+    },
+    mounted() {
+        // Normalize the definition once on mount: tools entries get their schema
+        // defaults and max_tool_rounds falls back to the configured default so the
+        // number input never renders with an empty required value.
+        const def = this.modelValue;
+        if (!def) return;
+        let changed = false;
+        if (typeof def.max_tool_rounds !== "number" || def.max_tool_rounds === null || def.max_tool_rounds === undefined) {
+            def.max_tool_rounds = TOOL_USE_LIMITS.maxRounds.default;
+            changed = true;
+        }
+        (def.tools || []).forEach((tool) => {
+            if (!tool.parameters) {
+                tool.parameters = defaultParametersSchema();
+                changed = true;
+            }
+            if (!tool.response_schema) {
+                tool.response_schema = defaultResponseSchema();
+                changed = true;
+            }
+        });
+        if (changed) {
+            this.$forceUpdate();
+        }
     },
 };
 </script>
