@@ -352,18 +352,10 @@ class MetricController extends BaseApiController
             throw new \InvalidArgumentException('tool-use max_tool_rounds must be between 1 and 20');
         }
 
-        // --- expected_behavior (optional "Erwartungshorizont") ---
-        $expectedBehavior = $definition['expected_behavior'] ?? '';
-        if (!is_string($expectedBehavior)) {
-            throw new \InvalidArgumentException('tool-use expected_behavior must be a string');
-        }
-        $expectedBehavior = trim($expectedBehavior);
-
         return [
             'tools' => $tools,
             'simulation_prompt' => $simulationPrompt,
             'evaluation_prompt' => $evaluationPrompt,
-            'expected_behavior' => $expectedBehavior,
             'max_tool_rounds' => $maxRounds,
         ];
     }

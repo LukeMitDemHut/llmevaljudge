@@ -31,19 +31,19 @@ from toolusemetric import (
 DEF = {
     "tools": [
         {"name": "doc_search",
-         "description": "Durchsucht die Wissensdatenbank.",
+         "description": "Searches the knowledge base.",
          "parameters": [
-             {"name": "query", "type": "string", "description": "Suchbegriff", "required": True},
-             {"name": "max_results", "type": "number", "description": "Max Treffer", "required": False},
+             {"name": "query", "type": "string", "description": "Search term", "required": True},
+             {"name": "max_results", "type": "number", "description": "Max results", "required": False},
          ]},
         {"name": "open_document",
          "description": "Opens a found document.",
          "parameters": [
-             {"name": "document_id", "type": "string", "description": "Dokument-ID", "required": True},
+             {"name": "document_id", "type": "string", "description": "Document ID", "required": True},
          ]},
     ],
-    "simulation_prompt": "Simuliere: Dokument erst in Runde 3 gefunden.",
-    "evaluation_prompt": "Bewerte Werkzeugauswahl, Reaktion auf Ergebnisse, Beendigungszeitpunkt.",
+    "simulation_prompt": "Simulate: document only found in round 3.",
+    "evaluation_prompt": "Assess tool choice, reaction to results, and when the interaction ends.",
     "max_tool_rounds": 4,
 }
 
@@ -82,9 +82,9 @@ def test_success_single_round():
     evaluatee = [
         call_response("tool_calls", tool_calls=[{"id": "c1", "name": "doc_search",
                                                 "arguments": json.dumps({"query": "Alice puzzle", "max_results": 5})}]),
-        call_response("stop", content="Ein Bruder von Alice hat drei Schwestern."),
+        call_response("stop", content="A brother of Alice has three sisters."),
     ]
-    sims = ['{"result": "Dokument gefunden: Inhalt: ein Bruder hat 3 Schwestern."}']
+    sims = ['{"result": "Document found. Content: a brother of Alice has three sisters."}']
 
     with patch.object(m.evaluatee, "chat", side_effect=evaluatee) as ev_call, \
          patch.object(m.simulation_client, "chat", side_effect=[{"finish_reason": "stop", "content": s, "tool_calls": []} for s in sims]) as sim_call, \
@@ -94,7 +94,7 @@ def test_success_single_round():
 
     assert score == 0.9, f"score expected 0.9 got {score}"
     assert m.end_reason == ROUND_END_FINAL_ANSWER
-    assert m.final_answer == "Ein Bruder von Alice hat drei Schwestern."
+    assert m.final_answer == "A brother of Alice has three sisters."
     assert len(m.rounds) == 1
     assert m.rounds[0]["tool_calls"][0]["arguments"] == {"query": "Alice puzzle", "max_results": 5}
     # Evaluatee call must carry the OpenAI tool schema:
@@ -114,7 +114,7 @@ def test_multi_round_dependency():
     evaluatee = [
         call_response("tool_calls", tool_calls=[{"id": "c1", "name": "doc_search", "arguments": '{"query": "puzzle"}'}]),
         call_response("tool_calls", tool_calls=[{"id": "c2", "name": "open_document", "arguments": '{"document_id": "doc_42"}'}]),
-        call_response("stop", content="Antwort: drei Schwestern."),
+        call_response("stop", content="Answer: three sisters."),
     ]
     sims = [
         '{"result": "Match: doc_42 (Alice puzzle)."}',
@@ -142,7 +142,7 @@ def test_max_rounds():
     # model keeps calling tools (4x, more than the limit)
     forever = [{"id": f"c{i}", "name": "doc_search", "arguments": '{"query": "q%d"}' % i} for i in range(1, 5)]
     evaluatee = [call_response("tool_calls", tool_calls=[tc]) for tc in forever]
-    sims = ['{"result": "nichts gefunden."}'] * 4
+    sims = ['{"result": "nothing found."}'] * 4
     with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
          patch.object(m.simulation_client, "chat", side_effect=[{"finish_reason": "stop", "content": s, "tool_calls": []} for s in sims]), \
          patch.object(m.evaluation_client, "chat", side_effect=[
@@ -225,14 +225,14 @@ def test_bad_final_evaluation():
 def test_markdown_score_extraction():
     m = make_metric()
     evaluatee = [call_response("stop", content="finale Antwort ohne Tool.")]
-    markdown_reply = "Der Score: **SCORE:** 7.5\n\n**REASONING:**\nSolide Arbeit."
+    markdown_reply = "The score: **SCORE:** 7.5\n\n**REASONING:**\nSolid work."
     with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
          patch.object(m.evaluation_client, "chat", side_effect=[
              {"finish_reason": "stop", "content": markdown_reply, "tool_calls": []}]):
         score = m.measure(FakeCase())
 
     assert score == 0.75, f"markdown 7.5/10 -> 0.75, got {score}"
-    assert "Solide Arbeit" in m.reason
+    assert "Solid work" in m.reason
     assert m.end_reason == ROUND_END_FINAL_ANSWER
     print("TEST 7 OK: markdown-fallback extraction works (7.5 -> 0.75)")
 

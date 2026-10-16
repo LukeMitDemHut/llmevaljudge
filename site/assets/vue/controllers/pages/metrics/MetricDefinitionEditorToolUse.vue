@@ -151,14 +151,6 @@
                 ref="evaluationPromptInput"
                 errorMessage="Evaluation prompt is required"
             />
-            <InputText
-                class="mt-3"
-                v-model="modelValue.expected_behavior"
-                label="Erwartungshorizont (optional)"
-                placeholder="Optionally describes what should ideally happen during tool interaction, e.g. 'The model should first search, then refine the query, and only answer after finding evidence.'"
-                :isTextarea="true"
-                ref="expectedBehaviorInput"
-            />
             <div class="row mt-3">
                 <div class="col-md-4">
                     <InputNumber

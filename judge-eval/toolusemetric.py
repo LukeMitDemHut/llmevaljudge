@@ -131,8 +131,7 @@ class ToolUseMetric(BaseMetric):
         "tools": [{"name", "description", "parameters": [{"name","type","description","required"}]}],
         "simulation_prompt": str,
         "evaluation_prompt": str,
-        "max_tool_rounds": int,
-        "expected_behavior": Optional[str]  # optional expected-behavior block, appended to the evaluation prompt
+        "max_tool_rounds": int
     }
     """
 
@@ -163,7 +162,6 @@ class ToolUseMetric(BaseMetric):
         self.tools = definition.get("tools", [])
         self.simulation_prompt = definition.get("simulation_prompt", "")
         self.evaluation_prompt = definition.get("evaluation_prompt", "")
-        self.expected_behavior = definition.get("expected_behavior") or ""
         self.max_tool_rounds = int(definition.get("max_tool_rounds", 5))
         self.system_prompt = system_prompt
 
@@ -177,7 +175,6 @@ class ToolUseMetric(BaseMetric):
             "evaluatee": evaluatee_name,
             "tools": [t.get("name") for t in self.tools],
             "max_tool_rounds": self.max_tool_rounds,
-            "has_expected_behavior": bool(self.expected_behavior),
             "simulation_prompt_length": len(self.simulation_prompt),
             "evaluation_prompt_length": len(self.evaluation_prompt),
         })
@@ -291,19 +288,11 @@ class ToolUseMetric(BaseMetric):
         tool_schema_str = json.dumps(self.tools, ensure_ascii=False, indent=2)
         conversation_str = self._format_conversation(conversation)
 
-        expected_block = ""
-        if self.expected_behavior and self.expected_behavior.strip():
-            expected_block = (
-                f"\nEXPECTED BEHAVIOR / TARGET BEHAVIOR (in addition to the criteria):\n"
-                f"{self.expected_behavior.strip()}\n"
-            )
-
         user = (
             f"TASK (original user prompt):\n{test_case.input}\n\n"
             f"AVAILABLE TOOLS (schemas):\n{tool_schema_str}\n\n"
             f"SIMULATION RULES (how the tool results were generated):\n{self.simulation_prompt}\n\n"
-            f"EVALUATION CRITERIA (defined by the evaluation user):\n{self.evaluation_prompt}"
-            f"{expected_block}\n"
+            f"EVALUATION CRITERIA (defined by the evaluation user):\n{self.evaluation_prompt}\n"
             f"FULL INTERACTION TRANSCRIPT (all tool rounds, chronological):\n{conversation_str}\n\n"
             "Evaluate how well the model used its tools based on the evaluation criteria. "
             "Consider the path as well (rounds, parameters, reactions to intermediate results, "
