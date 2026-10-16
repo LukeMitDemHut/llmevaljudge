@@ -434,19 +434,25 @@
                                 <div
                                     v-if="
                                         tool.parameters &&
-                                        tool.parameters.length
+                                        tool.parameters.properties
                                     "
                                     class="small"
                                 >
                                     <div
-                                        v-for="param in tool.parameters"
-                                        :key="param.name"
+                                        v-for="(param, propName) in tool
+                                            .parameters.properties"
+                                        :key="propName"
                                     >
-                                        <code>{{ param.name }}</code>
+                                        <code>{{ propName }}</code>
                                         <span class="text-muted">
                                             ({{ param.type }}
                                             <span
-                                                v-if="param.required"
+                                                v-if="
+                                                    tool.parameters.required &&
+                                                    tool.parameters.required.includes(
+                                                        propName
+                                                    )
+                                                "
                                                 class="text-danger"
                                                 >required</span
                                             >)

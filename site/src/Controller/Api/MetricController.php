@@ -261,6 +261,11 @@ class MetricController extends BaseApiController
         $allowedTypes = ['string', 'number', 'boolean', 'object', 'array'];
 
         // --- tools ---
+        // Each tool carries two JSON Schemas:
+        //   parameters      -> handed to the target model as OpenAI function-calling schema
+        //   response_schema -> enforced via response_format on the judge simulation call
+        // Both are normalized to OpenAI strict mode: every property required,
+        // additionalProperties false everywhere.
         if (!isset($definition['tools']) || !is_array($definition['tools']) || count($definition['tools']) === 0) {
             throw new \InvalidArgumentException('tool-use definition requires at least one tool');
         }
@@ -286,47 +291,30 @@ class MetricController extends BaseApiController
                 throw new \InvalidArgumentException(sprintf('tools[%d].description is required', $i));
             }
 
-            $parameters = $tool['parameters'] ?? [];
-            if (!is_array($parameters)) {
-                throw new \InvalidArgumentException(sprintf('tools[%d].parameters must be an array', $i));
+            // Migrate legacy format (parameters was a plain list of simple fields)
+            $parameters = $tool['parameters'] ?? null;
+            if (is_array($parameters) && isset($parameters[0]) && is_array($parameters[0]) && isset($parameters[0]['name']) && !isset($parameters[0]['type']) === false && isset($parameters[0]['required'])) {
+                // legacy list-to-schema conversion
+                $parameters = self::legacyParameterListToSchema($parameters);
             }
 
-            $normalizedParams = [];
-            $seenParamNames = [];
-            foreach ($parameters as $j => $param) {
-                if (!is_array($param)) {
-                    throw new \InvalidArgumentException(sprintf('tools[%d].parameters[%d] must be an object', $i, $j));
-                }
+            $parametersSchema = self::normalizeStrictJsonSchema(
+                $parameters,
+                sprintf('tools[%d].parameters', $i),
+                true
+            );
 
-                $pName = $param['name'] ?? null;
-                if (!is_string($pName) || trim($pName) === '') {
-                    throw new \InvalidArgumentException(sprintf('tools[%d].parameters[%d].name is required', $i, $j));
-                }
-                if (isset($seenParamNames[$pName])) {
-                    throw new \InvalidArgumentException(sprintf('tools[%d].parameters[%d].name "%s" is not unique', $i, $j, $pName));
-                }
-                $seenParamNames[$pName] = true;
-
-                $pType = $param['type'] ?? 'string';
-                if (!in_array($pType, $allowedTypes, true)) {
-                    throw new \InvalidArgumentException(sprintf(
-                        'tools[%d].parameters[%d].type "%s" is invalid (allowed: %s)',
-                        $i, $j, is_string($pType) ? $pType : gettype($pType), implode(', ', $allowedTypes)
-                    ));
-                }
-
-                $normalizedParams[] = [
-                    'name' => $pName,
-                    'type' => $pType,
-                    'description' => is_string($param['description'] ?? null) ? $param['description'] : '',
-                    'required' => (bool) ($param['required'] ?? false),
-                ];
-            }
+            $responseSchema = self::normalizeStrictJsonSchema(
+                $tool['response_schema'] ?? null,
+                sprintf('tools[%d].response_schema', $i),
+                false
+            );
 
             $tools[] = [
                 'name' => $name,
                 'description' => $description,
-                'parameters' => $normalizedParams,
+                'parameters' => $parametersSchema,
+                'response_schema' => $responseSchema,
             ];
         }
 
@@ -357,6 +345,142 @@ class MetricController extends BaseApiController
             'simulation_prompt' => $simulationPrompt,
             'evaluation_prompt' => $evaluationPrompt,
             'max_tool_rounds' => $maxRounds,
+        ];
+    }
+
+    /**
+     * Normalizes a JSON Schema for OpenAI strict mode:
+     * - must be an object schema with "type": "object" set at the root,
+     * - every property recursively marked required,
+     * - "additionalProperties": false set on every object,
+     * - "description" values must be strings.
+     */
+    private function normalizeStrictJsonSchema(mixed $schema, string $path, bool $required): array
+    {
+        if ($schema === null) {
+            if ($required) {
+                throw new \InvalidArgumentException($path . ' is required');
+            }
+            // default minimal response schema
+            $schema = [
+                'type' => 'object',
+                'properties' => [
+                    'tool_result' => [
+                        'type' => 'string',
+                        'description' => 'The simulated tool response as plain text',
+                    ],
+                ],
+                'required' => ['tool_result'],
+                'additionalProperties' => false,
+            ];
+        }
+
+        if (!is_array($schema)) {
+            throw new \InvalidArgumentException($path . ' must be a JSON Schema object');
+        }
+
+        $type = $schema['type'] ?? 'object';
+        if (!is_string($type) || $type === '') {
+            throw new \InvalidArgumentException($path . '.type must be a non-empty string');
+        }
+
+        if ($type === 'object') {
+            $properties = $schema['properties'] ?? [];
+            if (!is_array($properties)) {
+                throw new \InvalidArgumentException($path . '.properties must be an object');
+            }
+
+            $normalizedProperties = [];
+            $names = [];
+            foreach ($properties as $propName => $propSchema) {
+                if (!is_string($propName) || $propName === '') {
+                    throw new \InvalidArgumentException($path . '.properties keys must be non-empty strings');
+                }
+                if (isset($names[$propName])) {
+                    throw new \InvalidArgumentException($path . '.properties "' . $propName . '" is defined twice');
+                }
+                $names[$propName] = true;
+                $normalizedProperties[$propName] = $this->normalizeStrictProperty(
+                    $propSchema,
+                    $path . '.properties.' . $propName
+                );
+            }
+
+            $normalized = [
+                'type' => 'object',
+                'properties' => $normalizedProperties,
+                'required' => array_keys($normalizedProperties),
+                'additionalProperties' => false,
+            ];
+
+            return $normalized;
+        }
+
+        if ($type === 'array') {
+            $normalized = ['type' => 'array'];
+            if (isset($schema['items'])) {
+                $normalized['items'] = $this->normalizeStrictProperty($schema['items'], $path . '.items');
+            } else {
+                throw new \InvalidArgumentException($path . '.items is required for array types');
+            }
+            if (isset($schema['description']) && is_string($schema['description'])) {
+                $normalized['description'] = $schema['description'];
+            }
+            return $normalized;
+        }
+
+        // scalar types (string/number/boolean/integer/null)
+        $allowed = ['string', 'number', 'boolean', 'integer', 'null'];
+        if (!in_array($type, $allowed, true)) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s.type "%s" is not allowed (allowed: %s)',
+                $path, $type, implode(', ', array_merge($allowed, ['object', 'array']))
+            ));
+        }
+        $normalized = ['type' => $type];
+        if (isset($schema['description']) && is_string($schema['description'])) {
+            $normalized['description'] = $schema['description'];
+        }
+        if (isset($schema['enum']) && is_array($schema['enum']) && $type === 'string') {
+            $normalized['enum'] = array_values(array_filter($schema['enum'], 'is_string'));
+        }
+        return $normalized;
+    }
+
+    private function normalizeStrictProperty(mixed $schema, string $path): array
+    {
+        if (!is_array($schema)) {
+            throw new \InvalidArgumentException($path . ' must be a JSON Schema object');
+        }
+        return $this->normalizeStrictJsonSchema($schema, $path, true);
+    }
+
+    /**
+     * Converts the legacy parameter format (a plain list of field objects with
+     * name/type/description/required) into a proper JSON Schema object.
+     */
+    private static function legacyParameterListToSchema(array $list): array
+    {
+        $properties = [];
+        $required = [];
+        foreach ($list as $param) {
+            if (!is_array($param) || !isset($param['name']) || !is_string($param['name']) || $param['name'] === '') {
+                continue;
+            }
+            $entry = ['type' => is_string($param['type'] ?? null) ? $param['type'] : 'string'];
+            if (isset($param['description']) && is_string($param['description'])) {
+                $entry['description'] = $param['description'];
+            }
+            $properties[$param['name']] = $entry;
+            if (!empty($param['required'])) {
+                $required[] = $param['name'];
+            }
+        }
+        return [
+            'type' => 'object',
+            'properties' => $properties,
+            'required' => $required,
+            'additionalProperties' => false,
         ];
     }
 }

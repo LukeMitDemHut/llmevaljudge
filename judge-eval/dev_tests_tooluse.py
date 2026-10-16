@@ -32,15 +32,23 @@ DEF = {
     "tools": [
         {"name": "doc_search",
          "description": "Searches the knowledge base.",
-         "parameters": [
-             {"name": "query", "type": "string", "description": "Search term", "required": True},
-             {"name": "max_results", "type": "number", "description": "Max results", "required": False},
-         ]},
+         "parameters": {
+             "type": "object",
+             "properties": {
+                 "query": {"type": "string", "description": "Search term"},
+                 "max_results": {"type": "number", "description": "Max results"},
+             },
+             "required": ["query"],
+             "additionalProperties": False,
+         }},
         {"name": "open_document",
          "description": "Opens a found document.",
-         "parameters": [
-             {"name": "document_id", "type": "string", "description": "Document ID", "required": True},
-         ]},
+         "parameters": {
+             "type": "object",
+             "properties": {"document_id": {"type": "string", "description": "Document ID"}},
+             "required": ["document_id"],
+             "additionalProperties": False,
+         }},
     ],
     "simulation_prompt": "Simulate: document only found in round 3.",
     "evaluation_prompt": "Assess tool choice, reaction to results, and when the interaction ends.",
@@ -55,7 +63,7 @@ class JudgeStub:
         self.model_name = "stub-judge-model"
 
 def make_metric(defn=None, max_rounds=None):
-    d = dict(DEF)
+    d = json.loads(json.dumps(DEF))  # deep copy: tests mutate tool entries
     if max_rounds is not None:
         d["max_tool_rounds"] = max_rounds
     return ToolUseMetric(
@@ -101,6 +109,7 @@ def test_success_single_round():
     tools_arg = ev_call.call_args_list[0].kwargs.get("tools") or ev_call.call_args_list[0][2]
     assert tools_arg[0]["function"]["name"] == "doc_search"
     assert tools_arg[0]["function"]["parameters"]["required"] == ["query"]
+    assert tools_arg[0]["function"]["parameters"]["additionalProperties"] is False
     # Simulation call must carry the JSON-only instruction:
     sim_msgs = sim_call.call_args[0][1]
     assert '{"result":' in sim_msgs[0]["content"]
@@ -243,13 +252,90 @@ def test_schema_type_mapping():
     m = make_metric()
     tools = m._tools_for_openai()
     f = tools[0]["function"]
-    assert f["parameters"]["properties"]["max_results"]["type"] == "number"
-    assert f["parameters"]["properties"]["query"]["type"] == "string"
-    assert f["parameters"]["required"] == ["query"]
+    params = f["parameters"]
+    assert params["type"] == "object"
+    assert params["properties"]["max_results"]["type"] == "number"
+    assert params["properties"]["query"]["type"] == "string"
+    assert params["required"] == ["query"]
+    assert params["additionalProperties"] is False
     # open_document:
     f2 = tools[1]["function"]
     assert f2["parameters"]["required"] == ["document_id"]
-    print("TEST 8 OK: schema type mapping + required lists correct")
+    print("TEST 8 OK: schema passthrough + strict formatting correct")
+
+
+# --------------------------------------------------------------------------- #
+# 9. Response schema: enforced via response_format on the simulation call
+# --------------------------------------------------------------------------- #
+def test_response_schema_enforcement():
+    m = make_metric()
+    m.tools[0]["response_schema"] = {
+        "type": "object",
+        "properties": {"summary": {"type": "string"}},
+        "required": ["summary"],
+        "additionalProperties": False,
+    }
+    evaluatee = [
+        call_response("tool_calls", tool_calls=[{"id": "c1", "name": "doc_search", "arguments": '{"query": "q"}'}]),
+        call_response("stop", content="final answer."),
+    ]
+    with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
+         patch.object(m.simulation_client, "chat", side_effect=[
+             {"finish_reason": "stop", "content": '{"summary": "Simulated result text."}', "tool_calls": []}
+         ]) as sim_call, \
+         patch.object(m.evaluation_client, "chat", side_effect=[
+             {"finish_reason": "stop", "content": '{"score": 8, "reasoning": "ok"}', "tool_calls": []}]):
+        score = m.measure(FakeCase())
+
+    assert score == 0.8
+    rf = sim_call.call_args_list[0].kwargs.get("response_format")
+    assert rf is not None and rf["type"] == "json_schema"
+    assert rf["json_schema"]["strict"] is True
+    assert list(rf["json_schema"]["schema"]["properties"].keys()) == ["summary"]
+    # extractor resolved the 'summary' property
+    assert m.rounds[0]["simulated"][0] == "Simulated result text."
+    print("TEST 9 OK: response_schema -> json_schema response_format on simulation call")
+
+
+# --------------------------------------------------------------------------- #
+# 10. No response schema: no response_format is sent, plain {result} parsing
+# --------------------------------------------------------------------------- #
+def test_no_response_schema():
+    m = make_metric()
+    evaluatee = [
+        call_response("tool_calls", tool_calls=[{"id": "c1", "name": "doc_search", "arguments": '{"query": "q"}'}]),
+        call_response("stop", content="done."),
+    ]
+    with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
+         patch.object(m.simulation_client, "chat", side_effect=[
+             {"finish_reason": "stop", "content": '{"result": "plain simulated text."}', "tool_calls": []}
+         ]) as sim_call, \
+         patch.object(m.evaluation_client, "chat", side_effect=[
+             {"finish_reason": "stop", "content": '{"score": 7, "reasoning": "fine"}', "tool_calls": []}]):
+        score = m.measure(FakeCase())
+
+    assert score == 0.7
+    assert sim_call.call_args_list[0].kwargs.get("response_format") is None
+    assert m.rounds[0]["simulated"][0] == "plain simulated text."
+    print("TEST 10 OK: without response_schema no response_format is sent")
+
+
+# --------------------------------------------------------------------------- #
+# 11. Legacy parameters list is migrated to a JSON schema object
+# --------------------------------------------------------------------------- #
+def test_legacy_parameters_migration():
+    m = make_metric()
+    m.tools[0]["parameters"] = [
+        {"name": "query", "type": "string", "description": "Search term", "required": True},
+        {"name": "limit", "type": "number", "description": "Limit", "required": False},
+    ]
+    tools = m._tools_for_openai()
+    f = tools[0]["function"]
+    assert f["parameters"]["type"] == "object"
+    assert f["parameters"]["required"] == ["query"]
+    assert f["parameters"]["properties"]["limit"]["type"] == "number"
+    assert f["parameters"]["additionalProperties"] is False
+    print("TEST 11 OK: legacy parameter list migrated to schema")
 
 if __name__ == "__main__":
     tests = [
@@ -261,6 +347,9 @@ if __name__ == "__main__":
         test_bad_final_evaluation,
         test_markdown_score_extraction,
         test_schema_type_mapping,
+        test_response_schema_enforcement,
+        test_no_response_schema,
+        test_legacy_parameters_migration,
     ]
     failed = []
     for t in tests:

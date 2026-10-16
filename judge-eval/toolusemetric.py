@@ -45,7 +45,8 @@ class OpenAIClientStreaming:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
 
-    def chat(self, model: str, messages: list, tools: Optional[list] = None) -> dict:
+    def chat(self, model: str, messages: list, tools: Optional[list] = None,
+             response_format: Optional[dict] = None) -> dict:
         """
         Executes a streaming chat completion call.
 
@@ -57,6 +58,8 @@ class OpenAIClientStreaming:
         payload = {"model": model, "messages": messages, "stream": True}
         if tools:
             payload["tools"] = tools
+        if response_format:
+            payload["response_format"] = response_format
 
         eval_logger.log_llm_request("tool_use_metric",
             prompt=json.dumps(messages, ensure_ascii=False)[:2000],
@@ -191,30 +194,51 @@ class ToolUseMetric(BaseMetric):
     # Tool schema -> OpenAI tools parameter
     # ------------------------------------------------------------------ #
 
+    def _default_parameters_schema(self) -> dict:
+        return {"type": "object", "properties": {}, "required": [], "additionalProperties": False}
+
     def _tools_for_openai(self) -> list:
-        """Converts the tool definitions into OpenAI function-calling format."""
+        """Converts the tool definitions into OpenAI function-calling format.
+
+        tools[].parameters is a JSON Schema object (built in the UI with the
+        schema editor); it is passed through after enforcing the OpenAI strict
+        requirements. Legacy list-format definitions are migrated.
+        """
         out = []
         for tool in self.tools:
-            params = tool.get("parameters") or []
-            properties = {}
-            required = []
-            for p in params:
-                prop = {"type": p.get("type", "string")}
-                if p.get("description"):
-                    prop["description"] = p["description"]
-                properties[p["name"]] = prop
-                if p.get("required"):
-                    required.append(p["name"])
+            parameters = tool.get("parameters")
+
+            # Legacy migration: parameters was a plain list of simple fields
+            if (
+                isinstance(parameters, list)
+                and parameters
+                and all(isinstance(p, dict) and isinstance(p.get("name"), str) for p in parameters)
+            ):
+                properties = {}
+                required = []
+                for p in parameters:
+                    prop = {"type": p.get("type") or "string"}
+                    if p.get("description"):
+                        prop["description"] = p["description"]
+                    properties[p["name"]] = prop
+                    if p.get("required"):
+                        required.append(p["name"])
+                parameters = {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                    "additionalProperties": False,
+                }
+
+            if not isinstance(parameters, dict):
+                parameters = self._default_parameters_schema()
+
             out.append({
                 "type": "function",
                 "function": {
                     "name": tool["name"],
                     "description": tool.get("description", ""),
-                    "parameters": {
-                        "type": "object",
-                        "properties": properties,
-                        "required": required,
-                    },
+                    "parameters": parameters,
                 },
             })
         return out
@@ -222,6 +246,24 @@ class ToolUseMetric(BaseMetric):
     # ------------------------------------------------------------------ #
     # Simulation
     # ------------------------------------------------------------------ #
+
+    def _response_format_for(self, tool_name: str) -> Optional[dict]:
+        """
+        Builds the response_format (json_schema) for the judge simulation call
+        from the tool's response_schema, if one is configured.
+        """
+        tool = next((t for t in self.tools if t.get("name") == tool_name), None)
+        schema = (tool or {}).get("response_schema")
+        if not isinstance(schema, dict) or not schema:
+            return None
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "tool_result_" + re.sub(r"[^a-zA-Z0-9_]", "_", tool_name)[:40],
+                "strict": True,
+                "schema": schema,
+            },
+        }
 
     def _build_simulation_messages(self, task_input: str, round_index: int,
                                    tool_call: dict, history_summary: str) -> list:
@@ -249,8 +291,14 @@ class ToolUseMetric(BaseMetric):
         )
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
-    def _parse_simulation_response(self, response: str) -> str:
-        """Extracts the 'result' field from the simulator's JSON response."""
+    def _parse_simulation_response(self, response: str, tool_name: str = "") -> str:
+        """
+        Extracts the simulated text from the judge's JSON response.
+
+        With a response_schema configured, the schema's first string property
+        holds the result; without one, a "result" key is expected. Falls back
+        to the raw text when nothing schema-shaped can be extracted.
+        """
         text = (response or "").strip()
         m = re.search(r"\{.*\}", text, re.DOTALL)
         if not m:
@@ -259,17 +307,37 @@ class ToolUseMetric(BaseMetric):
             data = json.loads(m.group(0))
         except json.JSONDecodeError as e:
             raise ValueError(f"Simulator JSON is invalid: {e}: {text[:200]}")
-        result = data.get("result")
-        if not isinstance(result, str) or not result.strip():
-            raise ValueError(f"Simulator JSON misses non-empty 'result': {text[:200]}")
-        return result.strip()
+        if not isinstance(data, dict):
+            raise ValueError(f"Simulator JSON is not an object: {text[:200]}")
+
+        # Preferred: a string property from the (first) response schema property
+        candidate_keys = ["result"]
+        if tool_name:
+            tool = next((t for t in self.tools if t.get("name") == tool_name), None)
+            props = ((tool or {}).get("response_schema") or {}).get("properties") or {}
+            candidate_keys += list(props.keys())
+        for key in candidate_keys:
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        # Fallback: first string-valued entry in the object
+        for value in data.values():
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        raise ValueError(f"Simulator JSON has no string result field (tool={tool_name!r}): {text[:200]}")
 
     def _simulate_tool_result(self, task_input: str, round_index: int,
                               tool_call: dict, history_summary: str) -> str:
-        """Requests one simulated tool result from the judge."""
+        """Requests one simulated tool result from the judge (schema-enforced when configured)."""
         messages = self._build_simulation_messages(task_input, round_index, tool_call, history_summary)
-        resp = self.simulation_client.chat(self._judge_api["name"], messages, tools=None)
-        return self._parse_simulation_response(resp["content"])
+        response_format = self._response_format_for(tool_call["name"])
+        resp = self.simulation_client.chat(
+            self._judge_api["name"], messages, tools=None,
+            response_format=response_format,
+        )
+        return self._parse_simulation_response(resp["content"], tool_call["name"])
 
     # ------------------------------------------------------------------ #
     # Final evaluation

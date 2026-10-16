@@ -2,37 +2,37 @@
  * Constants for Tool Use metrics configuration
  */
 
-/** Datentypen, die ein Tool-Parameter annehmen kann (OpenAI function calling + JSON-Schema-Teilmenge) */
-export const AVAILABLE_PARAM_TYPES = [
-    { value: "string", label: "String" },
-    { value: "number", label: "Number" },
-    { value: "boolean", label: "Boolean" },
-    { value: "object", label: "Object" },
-    { value: "array", label: "Array" },
-];
-
 /** Limits for the tool-use definition editor */
 export const TOOL_USE_LIMITS = {
     maxTools: 20,
-    maxParamsPerTool: 30,
     maxRounds: { min: 1, max: 20, default: 5 },
 };
 
-/** Structure used when initializing a fresh tool-use definition */
-export function newTool() {
+/** Default parameter schema for a new tool (OpenAI function calling compatible) */
+export function defaultParametersSchema() {
     return {
-        name: "",
-        description: "",
-        parameters: [],
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
     };
 }
 
-export function newToolParameter() {
+/**
+ * Default response schema for a new tool (judge simulation output):
+ * one plain string property, extendable in the advanced accordion.
+ */
+export function defaultResponseSchema() {
     return {
-        name: "",
-        type: "string",
-        description: "",
-        required: false,
+        type: "object",
+        properties: {
+            tool_result: {
+                type: "string",
+                description: "The simulated tool response as plain text",
+            },
+        },
+        required: ["tool_result"],
+        additionalProperties: false,
     };
 }
 

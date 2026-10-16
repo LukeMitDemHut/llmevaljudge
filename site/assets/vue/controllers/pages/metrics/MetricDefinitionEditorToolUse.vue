@@ -3,7 +3,7 @@
         <InputGroup
             label="Tools"
             ref="toolsGroup"
-            errorMessage="At least one complete tool is required"
+            errorMessage="At least one tool with a name and description is required"
         >
             <div
                 v-for="(tool, index) in modelValue.tools"
@@ -45,76 +45,44 @@
                     </div>
                 </div>
 
-                <!-- Parameters -->
-                <div class="mt-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Parameters</h6>
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary btn-sm"
-                            @click="addParameter(tool)"
-                        >
-                            Add Parameter
-                        </button>
-                    </div>
-
-                    <div
-                        v-for="(param, pIndex) in tool.parameters"
-                        :key="pIndex"
-                        class="row g-2 align-items-end mt-1 ps-2 border-start"
-                    >
-                        <div class="col-md-3">
-                            <InputText
-                                v-model="param.name"
-                                :label="'Name'"
-                                placeholder="e.g. query"
-                                required
-                                :maxLength="64"
-                            />
-                        </div>
-                        <div class="col-md-2">
-                            <InputDropdown
-                                v-model="param.type"
-                                :label="'Type'"
-                                placeholder="Type"
-                                :options="paramTypeOptions"
-                                required
-                            />
-                        </div>
-                        <div class="col-md-5">
-                            <InputText
-                                v-model="param.description"
-                                :label="'Description'"
-                                placeholder="What the parameter is used for"
-                                :maxLength="300"
-                            />
-                        </div>
-                        <div class="col-md-1">
-                            <InputCheckbox
-                                label="Required"
-                                :modelValue="param.required"
-                                :value="param.required"
-                                @update:modelValue="param.required = $event"
-                            />
-                        </div>
-                        <div class="col-md-1 pb-2">
-                            <button
-                                type="button"
-                                class="btn btn-outline-danger btn-sm"
-                                @click="removeParameter(tool, pIndex)"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    </div>
-
-                    <div
-                        v-if="tool.parameters.length === 0"
-                        class="text-muted small mt-1"
-                    >
-                        No parameters defined.
+                <!-- Parameter Schema (visual JSON Schema editor) -->
+                <div class="mt-3">
+                    <h6 class="mb-1">Parameter Schema</h6>
+                    <p class="text-muted small mb-2">
+                        JSON Schema for the tool's parameters (OpenAI function calling
+                        strict mode is applied automatically).
+                    </p>
+                    <div class="bg-white border rounded p-2">
+                        <JsonSchemaEditor
+                            :schema="getToolParametersSchema(tool)"
+                            :show-json-editor="false"
+                            :show-fullscreen="false"
+                            @update:schema="setToolParametersSchema(tool, $event)"
+                        />
                     </div>
                 </div>
+
+                <!-- Response Schema (advanced) -->
+                <Accordion
+                    class="mt-3"
+                    :items="responseAccordionItems"
+                    :accordionId="'toolResponseAccordion' + index"
+                >
+                    <template v-slot:response-pane>
+                        <p class="text-muted small mb-2">
+                            JSON Schema the judge must follow when simulating this
+                            tool's response. Defaults to a single string property.
+                        </p>
+                        <div class="bg-white border rounded p-2">
+                            <JsonSchemaEditor
+                                :schema="getToolResponseSchema(tool)"
+                                :show-json-editor="false"
+                                :show-fullscreen="false"
+                                @update:schema="setToolResponseSchema(tool, $event)"
+                            />
+                        </div>
+                    </template>
+                </Accordion>
             </div>
 
             <button
@@ -174,14 +142,14 @@
 <script>
 import InputGroup from "@components/interactables/inputs/InputGroup.vue";
 import InputText from "@components/interactables/inputs/InputText.vue";
-import InputDropdown from "@components/interactables/inputs/InputDropdown.vue";
 import InputNumber from "@components/interactables/inputs/InputNumber.vue";
-import InputCheckbox from "@components/interactables/inputs/InputCheckbox.vue";
+import Accordion from "@components/structure/Accordion.vue";
+import { JsonSchemaEditor } from "jsonschema-builder-vue";
+import "jsonschema-builder-vue/styles.css";
 import {
-    AVAILABLE_PARAM_TYPES,
     TOOL_USE_LIMITS,
-    newTool,
-    newToolParameter,
+    defaultParametersSchema,
+    defaultResponseSchema,
 } from "@constants/tooluseConstants.js";
 
 export default {
@@ -189,9 +157,9 @@ export default {
     components: {
         InputGroup,
         InputText,
-        InputDropdown,
         InputNumber,
-        InputCheckbox,
+        Accordion,
+        JsonSchemaEditor,
     },
     props: {
         modelValue: {
@@ -201,28 +169,38 @@ export default {
     },
     data() {
         return {
-            paramTypeOptions: AVAILABLE_PARAM_TYPES,
             TOOL_USE_LIMITS,
+            responseAccordionItems: [
+                { id: "response", label: "Response Schema (advanced)", icon: "brackets-curly" },
+            ],
         };
     },
     methods: {
         addTool() {
             const tools = this.modelValue.tools || [];
             if (tools.length >= TOOL_USE_LIMITS.maxTools) return;
-            tools.push(newTool());
+            tools.push({
+                name: "",
+                description: "",
+                parameters: defaultParametersSchema(),
+                response_schema: defaultResponseSchema(),
+            });
             this.modelValue.tools = tools;
         },
         removeTool(index) {
             this.modelValue.tools.splice(index, 1);
         },
-        addParameter(tool) {
-            const params = tool.parameters || [];
-            if (params.length >= TOOL_USE_LIMITS.maxParamsPerTool) return;
-            params.push(newToolParameter());
-            tool.parameters = params;
+        getToolParametersSchema(tool) {
+            return tool.parameters || defaultParametersSchema();
         },
-        removeParameter(tool, index) {
-            tool.parameters.splice(index, 1);
+        setToolParametersSchema(tool, schema) {
+            tool.parameters = schema;
+        },
+        getToolResponseSchema(tool) {
+            return tool.response_schema || defaultResponseSchema();
+        },
+        setToolResponseSchema(tool, schema) {
+            tool.response_schema = schema;
         },
         validate() {
             const toolsValid =
