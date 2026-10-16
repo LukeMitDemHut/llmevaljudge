@@ -293,11 +293,13 @@ class ToolUseMetric(BaseMetric):
 
     def _parse_simulation_response(self, response: str, tool_name: str = "") -> str:
         """
-        Extracts the simulated text from the judge's JSON response.
+        Serializes the simulated tool result into the text used for the tool
+        response message.
 
-        With a response_schema configured, the schema's first string property
-        holds the result; without one, a "result" key is expected. Falls back
-        to the raw text when nothing schema-shaped can be extracted.
+        String values are used as-is; any other schema-conform value (object,
+        array, number, boolean) is JSON-encoded — real tools also return plain
+        structured data. Resolution order: configured schema property, then a
+        "result" key, then the first value in the object.
         """
         text = (response or "").strip()
         m = re.search(r"\{.*\}", text, re.DOTALL)
@@ -310,23 +312,27 @@ class ToolUseMetric(BaseMetric):
         if not isinstance(data, dict):
             raise ValueError(f"Simulator JSON is not an object: {text[:200]}")
 
-        # Preferred: a string property from the (first) response schema property
         candidate_keys = ["result"]
         if tool_name:
             tool = next((t for t in self.tools if t.get("name") == tool_name), None)
             props = ((tool or {}).get("response_schema") or {}).get("properties") or {}
             candidate_keys += list(props.keys())
+
         for key in candidate_keys:
-            value = data.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
+            if key in data and data[key] is not None:
+                value = data[key]
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+                return json.dumps(value, ensure_ascii=False)
 
-        # Fallback: first string-valued entry in the object
+        # Fallback: first non-empty entry in the object
         for value in data.values():
-            if isinstance(value, str) and value.strip():
-                return value.strip()
+            if value is not None:
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+                return json.dumps(value, ensure_ascii=False)
 
-        raise ValueError(f"Simulator JSON has no string result field (tool={tool_name!r}): {text[:200]}")
+        raise ValueError(f"Simulator JSON has no usable result field (tool={tool_name!r}): {text[:200]}")
 
     def _simulate_tool_result(self, task_input: str, round_index: int,
                               tool_call: dict, history_summary: str) -> str:

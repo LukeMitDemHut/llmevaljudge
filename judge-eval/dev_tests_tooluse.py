@@ -298,6 +298,47 @@ def test_response_schema_enforcement():
 
 
 # --------------------------------------------------------------------------- #
+# 9b. Structured (non-string) response schema: object value is JSON-encoded
+# --------------------------------------------------------------------------- #
+def test_structured_response_schema():
+    m = make_metric()
+    m.tools[0]["response_schema"] = {
+        "type": "object",
+        "properties": {
+            "forecast": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string"},
+                    "temperatures": {
+                        "type": "object",
+                        "properties": {"monday": {"type": "number"}, "wetnesday": {"type": "number"}},
+                    },
+                },
+            }
+        },
+        "required": ["forecast"],
+        "additionalProperties": False,
+    }
+    evaluatee = [
+        call_response("tool_calls", tool_calls=[{"id": "c1", "name": "doc_search", "arguments": '{"query": "weather"}'}]),
+        call_response("stop", content="final answer."),
+    ]
+    with patch.object(m.evaluatee, "chat", side_effect=evaluatee), \
+         patch.object(m.simulation_client, "chat", side_effect=[
+             {"finish_reason": "stop", "content": json.dumps({"forecast": {"city": "Griemens", "temperatures": {"monday": 12, "wetnesday": 13}}}), "tool_calls": []}
+         ]), \
+         patch.object(m.evaluation_client, "chat", side_effect=[
+             {"finish_reason": "stop", "content": '{"score": 9, "reasoning": "ok"}', "tool_calls": []}]):
+        score = m.measure(FakeCase())
+
+    assert score == 0.9
+    simulated = m.rounds[0]["simulated"][0]
+    assert '"city": "Griemens"' in simulated
+    assert '"monday": 12' in simulated
+    print("TEST 9b OK: structured object result JSON-encoded into tool response")
+
+
+# --------------------------------------------------------------------------- #
 # 10. No response schema: no response_format is sent, plain {result} parsing
 # --------------------------------------------------------------------------- #
 def test_no_response_schema():
@@ -348,6 +389,7 @@ if __name__ == "__main__":
         test_markdown_score_extraction,
         test_schema_type_mapping,
         test_response_schema_enforcement,
+        test_structured_response_schema,
         test_no_response_schema,
         test_legacy_parameters_migration,
     ]
