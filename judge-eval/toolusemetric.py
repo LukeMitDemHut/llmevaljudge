@@ -350,7 +350,7 @@ class ToolUseMetric(BaseMetric):
     # ------------------------------------------------------------------ #
 
     def _build_evaluation_messages(self, test_case: LLMTestCase, conversation: list) -> list:
-        """Builds the final evaluation prompt: task, tools, both user prompts, full transcript."""
+        """Builds the final evaluation prompt: task, tools, prompts, system prompt, transcript."""
         system = (
             "You are a precise LLM-as-a-Judge grader. "
             "Assess how well a language model used its available tools, strictly following the "
@@ -362,12 +362,26 @@ class ToolUseMetric(BaseMetric):
         tool_schema_str = json.dumps(self.tools, ensure_ascii=False, indent=2)
         conversation_str = self._format_conversation(conversation)
 
+        # The system prompt the evaluated model actually received (contains the
+        # injected {context}); taken from the conversation, not self.system_prompt,
+        # because the fallback prompt lives there. Omitted when none exists.
+        system_prompt = ""
+        if conversation and conversation[0].get("role") == "system":
+            system_prompt = conversation[0].get("content", "")
+
+        system_section = (
+            f"SYSTEM PROMPT GIVEN TO THE EVALUATED MODEL:\n{system_prompt}\n\n"
+            if system_prompt.strip()
+            else ""
+        )
+
         user = (
             f"TASK (original user prompt):\n{test_case.input}\n\n"
             f"AVAILABLE TOOLS (schemas):\n{tool_schema_str}\n\n"
             f"SIMULATION RULES (how the tool results were generated):\n{self.simulation_prompt}\n\n"
             f"EVALUATION CRITERIA (defined by the evaluation user):\n{self.evaluation_prompt}\n"
             f"FULL INTERACTION TRANSCRIPT (all tool rounds, chronological):\n{conversation_str}\n\n"
+            f"{system_section}"
             "Evaluate how well the model used its tools based on the evaluation criteria. "
             "Consider the path as well (rounds, parameters, reactions to intermediate results, "
             "when the interaction was ended), not just the final answer."
@@ -381,7 +395,7 @@ class ToolUseMetric(BaseMetric):
         for msg in conversation:
             role = msg.get("role")
             if role == "system":
-                continue
+                lines.append(f"[SYSTEM PROMPT]\n{msg.get('content', '')}")
             if role == "user":
                 lines.append(f"[TASK]\n{msg.get('content', '')}")
             elif role == "assistant":
