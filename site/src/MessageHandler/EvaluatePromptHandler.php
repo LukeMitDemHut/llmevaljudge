@@ -7,8 +7,10 @@ use App\Entity\Metric;
 use App\Entity\Model;
 use App\Entity\Prompt;
 use App\Entity\Result;
+use App\Entity\TestCase;
 use App\Message\EvaluatePrompt;
 use App\Repository\SettingRepository;
+use App\Service\MetricTestCaseResolver;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -24,6 +26,7 @@ final class EvaluatePromptHandler
         private LoggerInterface $logger,
         private SettingRepository $settingRepository,
         private MessageBusInterface $messageBus,
+        private MetricTestCaseResolver $metricTestCaseResolver,
     ) {}
 
     public function __invoke(EvaluatePrompt $message): void
@@ -259,38 +262,26 @@ final class EvaluatePromptHandler
     {
         $count = 0;
         $repeatCount = $benchmark->getRepeatCount();
-        foreach ($benchmark->getTestCases() as $testCase) {
-            foreach ($testCase->getPrompts() as $prompt) {
-                foreach ($benchmark->getMetrics() as $metric) {
-                    // Check if prompt satisfies metric params (same logic as main handler)
-                    $satisfied = true;
-                    foreach ($metric->getParam() as $param) {
-                        switch ($param) {
-                            case \App\Enum\MetricParam::INPUT:
-                                $satisfied = !empty($prompt->getInput());
-                                break;
-                            case \App\Enum\MetricParam::EXPECTED_OUTPUT:
-                                $satisfied = !empty($prompt->getExpectedOutput());
-                                break;
-                            case \App\Enum\MetricParam::CONTEXT:
-                                $satisfied = !empty($prompt->getContext());
-                                break;
-                            case \App\Enum\MetricParam::ACTUAL_OUTPUT:
-                                $satisfied = true;
-                                break;
-                            default:
-                                $satisfied = false;
-                                break;
-                        }
-                        if (!$satisfied) break;
+
+        // Must stay consistent with RunBenchmarkHandler dispatch: same resolver,
+        // same metric->test cases pairing (empty assignment = all test cases), same
+        // per-pair param check. Otherwise progress can stall below or overshoot 100%.
+        $allTestCases = $this->entityManager->getRepository(TestCase::class)->findAll();
+
+        foreach ($benchmark->getMetrics() as $metric) {
+            foreach ($this->metricTestCaseResolver->getEffectiveTestCasesForMetric($metric, $allTestCases) as $testCase) {
+                foreach ($testCase->getPrompts() as $prompt) {
+                    // Skip only this (prompt, metric) pair when params are not satisfied
+                    // (does not exclude the prompt for other metrics)
+                    if (!$this->metricTestCaseResolver->pairSatisfiesParams($metric, $prompt)) {
+                        continue;
                     }
 
-                    if ($satisfied) {
-                        $count += count($benchmark->getModels()) * $repeatCount;
-                    }
+                    $count += count($benchmark->getModels()) * $repeatCount;
                 }
             }
         }
+
         return $count;
     }
 

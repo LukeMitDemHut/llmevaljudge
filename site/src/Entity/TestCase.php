@@ -34,15 +34,17 @@ class TestCase
     private Collection $prompts;
 
     /**
-     * @var Collection<int, Benchmark>
+     * Metrics this test case is paired with (inverse side; owning side is Metric).
+     *
+     * @var Collection<int, Metric>
      */
-    #[ORM\ManyToMany(targetEntity: Benchmark::class, mappedBy: 'testCases')]
-    private Collection $benchmarks;
+    #[ORM\ManyToMany(targetEntity: Metric::class, mappedBy: 'testCases')]
+    private Collection $metrics;
 
     public function __construct()
     {
         $this->prompts = new ArrayCollection();
-        $this->benchmarks = new ArrayCollection();
+        $this->metrics = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -105,27 +107,27 @@ class TestCase
     }
 
     /**
-     * @return Collection<int, Benchmark>
+     * @return Collection<int, Metric>
      */
-    public function getBenchmarks(): Collection
+    public function getMetrics(): Collection
     {
-        return $this->benchmarks;
+        return $this->metrics;
     }
 
-    public function addBenchmark(Benchmark $benchmark): static
+    public function addMetric(Metric $metric): static
     {
-        if (!$this->benchmarks->contains($benchmark)) {
-            $this->benchmarks->add($benchmark);
-            $benchmark->addTestCase($this);
+        if (!$this->metrics->contains($metric)) {
+            $this->metrics->add($metric);
+            $metric->addTestCase($this);
         }
 
         return $this;
     }
 
-    public function removeBenchmark(Benchmark $benchmark): static
+    public function removeMetric(Metric $metric): static
     {
-        if ($this->benchmarks->removeElement($benchmark)) {
-            $benchmark->removeTestCase($this);
+        if ($this->metrics->removeElement($metric)) {
+            $metric->removeTestCase($this);
         }
 
         return $this;

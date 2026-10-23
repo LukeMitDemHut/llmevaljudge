@@ -7,6 +7,7 @@ use App\Enum\MetricParam;
 use App\Enum\MetricType;
 use App\Repository\MetricRepository;
 use App\Repository\ModelRepository;
+use App\Repository\TestCaseRepository;
 use App\Utils\PaginationHelper;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,17 +19,20 @@ class MetricController extends BaseApiController
 {
     private MetricRepository $metricRepository;
     private ModelRepository $modelRepository;
+    private TestCaseRepository $testCaseRepository;
 
     public function __construct(
         \Doctrine\ORM\EntityManagerInterface $entityManager,
         \Symfony\Component\Serializer\Normalizer\NormalizerInterface $normalizer,
         \Symfony\Component\Validator\Validator\ValidatorInterface $validator,
         MetricRepository $metricRepository,
-        ModelRepository $modelRepository
+        ModelRepository $modelRepository,
+        TestCaseRepository $testCaseRepository
     ) {
         parent::__construct($entityManager, $normalizer, $validator);
         $this->metricRepository = $metricRepository;
         $this->modelRepository = $modelRepository;
+        $this->testCaseRepository = $testCaseRepository;
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -220,6 +224,24 @@ class MetricController extends BaseApiController
             $ratingModel = $this->modelRepository->find($data['rating_model_id']);
             if ($ratingModel) {
                 $metric->setRatingModel($ratingModel);
+            }
+        }
+
+        // Handle test cases (many-to-many; metric is the owning side).
+        // An empty list (or absent field) means "all test cases".
+        if (isset($data['testCaseIds']) && is_array($data['testCaseIds'])) {
+            // Clear existing associations
+            foreach ($metric->getTestCases() as $testCase) {
+                $metric->removeTestCase($testCase);
+            }
+
+            // Add new associations (unknown ids are ignored, consistent with
+            // metricIds/modelIds handling in populateBenchmarkFromData)
+            foreach ($data['testCaseIds'] as $testCaseId) {
+                $testCase = $this->testCaseRepository->find($testCaseId);
+                if ($testCase) {
+                    $metric->addTestCase($testCase);
+                }
             }
         }
     }
