@@ -4,7 +4,6 @@ namespace App\Controller\Api;
 
 use App\Entity\Benchmark;
 use App\Repository\BenchmarkRepository;
-use App\Repository\TestCaseRepository;
 use App\Repository\MetricRepository;
 use App\Repository\ModelRepository;
 use App\Utils\PaginationHelper;
@@ -17,7 +16,6 @@ use Symfony\Component\Routing\Attribute\Route;
 class BenchmarkController extends BaseApiController
 {
     private BenchmarkRepository $benchmarkRepository;
-    private TestCaseRepository $testCaseRepository;
     private MetricRepository $metricRepository;
     private ModelRepository $modelRepository;
 
@@ -26,13 +24,11 @@ class BenchmarkController extends BaseApiController
         \Symfony\Component\Serializer\Normalizer\NormalizerInterface $normalizer,
         \Symfony\Component\Validator\Validator\ValidatorInterface $validator,
         BenchmarkRepository $benchmarkRepository,
-        TestCaseRepository $testCaseRepository,
         MetricRepository $metricRepository,
         ModelRepository $modelRepository
     ) {
         parent::__construct($entityManager, $normalizer, $validator);
         $this->benchmarkRepository = $benchmarkRepository;
-        $this->testCaseRepository = $testCaseRepository;
         $this->metricRepository = $metricRepository;
         $this->modelRepository = $modelRepository;
     }
@@ -214,21 +210,9 @@ class BenchmarkController extends BaseApiController
             $benchmark->setFinishedAt($finishedAt);
         }
 
-        // Handle test cases (many-to-many)
-        if (isset($data['testCaseIds']) && is_array($data['testCaseIds'])) {
-            // Clear existing associations
-            foreach ($benchmark->getTestCases() as $testCase) {
-                $benchmark->removeTestCase($testCase);
-            }
-
-            // Add new associations
-            foreach ($data['testCaseIds'] as $testCaseId) {
-                $testCase = $this->testCaseRepository->find($testCaseId);
-                if ($testCase) {
-                    $benchmark->addTestCase($testCase);
-                }
-            }
-        }
+        // Test cases are no longer assigned on the benchmark. The metric<->test-case
+        // pairing lives on Metric (see MetricController); a legacy "testCaseIds"
+        // request field is silently ignored for one release.
 
         // Handle metrics (many-to-many)
         if (isset($data['metricIds']) && is_array($data['metricIds'])) {

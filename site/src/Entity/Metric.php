@@ -52,6 +52,19 @@ class Metric
     private Collection $benchmarks;
 
     /**
+     * Test cases this metric applies to. Owning side of the metric<->test-case pairing.
+     * An empty collection means "all test cases" (implicit fallback, resolved by
+     * MetricTestCaseResolver).
+     *
+     * @var Collection<int, TestCase>
+     */
+    #[ORM\ManyToMany(targetEntity: TestCase::class, inversedBy: 'metrics')]
+    #[ORM\JoinTable(name: 'metric_test_case')]
+    #[ORM\JoinColumn(name: 'metric_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'test_case_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private Collection $testCases;
+
+    /**
      * @var Collection<int, Result>
      */
     #[ORM\OneToMany(targetEntity: Result::class, mappedBy: 'metric', orphanRemoval: true)]
@@ -65,6 +78,7 @@ class Metric
     {
         $this->benchmarks = new ArrayCollection();
         $this->results = new ArrayCollection();
+        $this->testCases = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -169,6 +183,51 @@ class Metric
         }
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, TestCase>
+     */
+    public function getTestCases(): Collection
+    {
+        return $this->testCases;
+    }
+
+    public function addTestCase(TestCase $testCase): static
+    {
+        if (!$this->testCases->contains($testCase)) {
+            $this->testCases->add($testCase);
+            $testCase->addMetric($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTestCase(TestCase $testCase): static
+    {
+        if ($this->testCases->removeElement($testCase)) {
+            $testCase->removeMetric($this);
+        }
+
+        return $this;
+    }
+
+    /**
+     * IDs of the explicitly assigned test cases. Empty array means "all test cases".
+     * Serialized so benchmarks can expose the effective pairing through their metrics.
+     */
+    #[Groups(['api', 'metrics', 'benchmarks', 'metric_details'])]
+    public function getTestCaseIds(): array
+    {
+        $ids = [];
+        foreach ($this->testCases as $testCase) {
+            if ($testCase->getId() !== null) {
+                $ids[] = $testCase->getId();
+            }
+        }
+        sort($ids);
+
+        return $ids;
     }
 
     /**

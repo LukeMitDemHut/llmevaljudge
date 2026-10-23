@@ -64,7 +64,6 @@ export const useBenchmarksStore = defineStore("benchmarks", {
             return (
                 state.getBenchmarkStatus(benchmark) === "not_started" &&
                 benchmark.models?.length > 0 &&
-                benchmark.testCases?.length > 0 &&
                 benchmark.metrics?.length > 0
             );
         },

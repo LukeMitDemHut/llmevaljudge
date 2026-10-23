@@ -27,13 +27,6 @@ class Benchmark
     private ?\DateTimeImmutable $finishedAt = null;
 
     /**
-     * @var Collection<int, TestCase>
-     */
-    #[ORM\ManyToMany(targetEntity: TestCase::class, inversedBy: 'benchmarks')]
-    #[Groups(['api', 'benchmarks'])]
-    private Collection $testCases;
-
-    /**
      * @var Collection<int, Metric>
      */
     #[ORM\ManyToMany(targetEntity: Metric::class, inversedBy: 'benchmarks')]
@@ -71,7 +64,6 @@ class Benchmark
 
     public function __construct()
     {
-        $this->testCases = new ArrayCollection();
         $this->metrics = new ArrayCollection();
         $this->models = new ArrayCollection();
         $this->results = new ArrayCollection();
@@ -102,30 +94,6 @@ class Benchmark
     public function setFinishedAt(?\DateTimeImmutable $finishedAt): static
     {
         $this->finishedAt = $finishedAt;
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, TestCase>
-     */
-    public function getTestCases(): Collection
-    {
-        return $this->testCases;
-    }
-
-    public function addTestCase(TestCase $testCase): static
-    {
-        if (!$this->testCases->contains($testCase)) {
-            $this->testCases->add($testCase);
-        }
-
-        return $this;
-    }
-
-    public function removeTestCase(TestCase $testCase): static
-    {
-        $this->testCases->removeElement($testCase);
 
         return $this;
     }
