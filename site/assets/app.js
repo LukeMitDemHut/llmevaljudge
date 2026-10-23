@@ -4,6 +4,8 @@ import "./styles/app.scss";
 import "bootstrap";
 import { createApp } from "vue";
 import { createPinia } from "pinia";
+import PrimeVue from "primevue/config";
+import { auraPreset } from "jsonschema-builder-vue";
 
 console.log("This log comes from assets/app.js - welcome to AssetMapper! 🎉");
 
@@ -22,4 +24,11 @@ document.addEventListener("vue:before-mount", (event) => {
 
     const pinia = createPinia();
     app.use(pinia);
+
+    // jsonschema-builder-vue renders PrimeVue components internally; without a
+    // global PrimeVue config their $variant computed crashes on startup
+    // ("Cannot read properties of undefined (reading 'config')").
+    app.use(PrimeVue, {
+        theme: { preset: auraPreset },
+    });
 });

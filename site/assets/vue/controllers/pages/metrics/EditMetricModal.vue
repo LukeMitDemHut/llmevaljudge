@@ -66,6 +66,7 @@
 
     <InputMultiCheckbox
         v-model="metric.param"
+        v-if="metric.type !== 'tool-use'"
         label="Parameters"
         :options="availableParams"
         helpText="Select which parameters this metric will use for evaluation"
@@ -83,6 +84,11 @@
     />
     <MetricDefinitionEditorTale
         v-if="metric.type === 'tale'"
+        v-model="metric.definition"
+        ref="definitionEditor"
+    />
+    <MetricDefinitionEditorToolUse
+        v-if="metric.type === 'tool-use'"
         v-model="metric.definition"
         ref="definitionEditor"
     />
@@ -109,6 +115,7 @@ import InputMultiCheckbox from "@components/interactables/inputs/InputMultiCheck
 import MetricDefinitionEditorGeval from "./MetricDefinitionEditorGeval.vue";
 import MetricDefinitionEditorDag from "./MetricDefinitionEditorDag.vue";
 import MetricDefinitionEditorTale from "./MetricDefinitionEditorTale.vue";
+import MetricDefinitionEditorToolUse from "./MetricDefinitionEditorToolUse.vue";
 
 export default {
     name: "MetricModal",
@@ -121,6 +128,7 @@ export default {
         MetricDefinitionEditorGeval,
         MetricDefinitionEditorDag,
         MetricDefinitionEditorTale,
+        MetricDefinitionEditorToolUse,
     },
     props: {
         metric: {
@@ -142,6 +150,7 @@ export default {
                 { value: "g-eval", label: "G-Eval" },
                 { value: "dag", label: "DAG" },
                 { value: "tale", label: "TALE" },
+                { value: "tool-use", label: "Tool Use" },
             ],
             dagValidationErrors: [],
         };
@@ -185,9 +194,21 @@ export default {
                     search_engines: [],
                 };
             } else if (
+                newType === "tool-use" &&
+                (!this.metric.definition ||
+                    Object.keys(this.metric.definition).length === 0)
+            ) {
+                this.metric.definition = {
+                    tools: [],
+                    simulation_prompt: "",
+                    evaluation_prompt: "",
+                    max_tool_rounds: 5,
+                };
+            } else if (
                 newType !== "g-eval" &&
                 newType !== "dag" &&
-                newType !== "tale"
+                newType !== "tale" &&
+                newType !== "tool-use"
             ) {
                 // Clear definition if not a supported type
                 this.metric.definition = {};
@@ -260,6 +281,15 @@ export default {
                     this.dagValidationErrors = ["DAG definition is required"];
                 }
             } else if (this.metric.type === "tale") {
+                if (
+                    this.$refs.definitionEditor &&
+                    this.$refs.definitionEditor.validate
+                ) {
+                    definitionValid = this.$refs.definitionEditor.validate();
+                } else {
+                    definitionValid = false;
+                }
+            } else if (this.metric.type === "tool-use") {
                 if (
                     this.$refs.definitionEditor &&
                     this.$refs.definitionEditor.validate

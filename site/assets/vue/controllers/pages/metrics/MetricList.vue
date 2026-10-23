@@ -154,6 +154,10 @@ export default {
                     return "bg-success";
                 case "dag":
                     return "bg-warning";
+                case "tale":
+                    return "bg-info";
+                case "tool-use":
+                    return "bg-primary";
                 default:
                     return "bg-secondary";
             }
@@ -165,6 +169,10 @@ export default {
                     return "cpu";
                 case "dag":
                     return "arrows-split";
+                case "tale":
+                    return "globe";
+                case "tool-use":
+                    return "terminal";
             }
         },
     },

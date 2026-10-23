@@ -554,6 +554,142 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Tool Use Metrics -->
+                            <div class="card mb-4 border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">
+                                        <i class="ph ph-terminal me-2"></i>
+                                        Tool Use Metrics (Agentic &amp; Behavioral)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-3">
+                                        <strong>Tool Use</strong> metrics evaluate <em>how well</em> a model uses
+                                        provided tools, not just what it answers. The tools are simulated by the judge
+                                        model according to your simulation rules, so complex scenarios — including
+                                        deliberately unhelpful tool results — are reproducible without any real
+                                        integrations. Instead of hard-coding a pass/fail checklist, you define custom
+                                        evaluation criteria (like G-Eval) and the judge grades the complete
+                                        interaction transcript.
+                                    </p>
+
+                                    <h6 class="text-primary mb-2">How Tool Use Works</h6>
+                                    <ol>
+                                        <li><strong>Tool Calling:</strong> The target model receives the task plus your
+                                            tool definitions (name, description, parameter schemas) via OpenAI-style
+                                            function calling and decides which tool to invoke with which arguments
+                                        </li>
+                                        <li><strong>Simulation:</strong> The judge model generates the tool's response,
+                                            bound by your <em>simulation prompt</em> and the conversation history — so
+                                            earlier results stay consistent</li>
+                                        <li><strong>Iteration:</strong> The simulated result is fed back to the model;
+                                            it can refine its calls, switch tools, or finish with a final answer</li>
+                                        <li><strong>Final Evaluation:</strong> A separate judge call grades the full
+                                            transcript based on your <em>evaluation prompt</em> and the optional
+                                            expected-behavior description</li>
+                                    </ol>
+
+                                    <h6 class="text-primary mb-2">Configuration Options</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Setting</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><code>Tools</code></td>
+                                                    <td>Any number of tools, each with name, description and parameter
+                                                        schemas (type, description, required)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>Simulation Prompt</code></td>
+                                                    <td>How the judge should respond to tool calls, e.g. "the correct
+                                                        document is only found after five rounds; return related but
+                                                        insufficient documents before that"</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>Evaluation Prompt</code></td>
+                                                    <td>The criteria for grading tool usage, e.g. sensible tool choice,
+                                                        meaningful parameters, reaction to weak results, when to stop</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><code>Max Tool-Call Rounds</code></td>
+                                                    <td>Hard limit before evaluation is triggered, even if the model keeps
+                                                        calling tools</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <h6 class="text-primary mb-2">When to use Tool Use</h6>
+                                    <ul class="mb-3">
+                                        <li><strong>Agentic Tasks:</strong> Retrieval, research, multi-step lookup
+                                            workflows</li>
+                                        <li><strong>Tool Selection Quality:</strong> Does the model pick the right tool
+                                            and parameters?</li>
+                                        <li><strong>Error Handling:</strong> Does the model react sensibly to empty,
+                                            slow or unhelpful tool results?</li>
+                                        <li><strong>Stopping Behavior:</strong> Does the model terminate only once it
+                                            has enough information?</li>
+                                        <li><strong>Reproducible Scenarios:</strong> Deliberately difficult simulations
+                                            (distractor results, late success) applied consistently to every target
+                                            model</li>
+                                    </ul>
+
+                                    <h6 class="text-primary mb-2">When <span class="text-danger">NOT</span> to use Tool
+                                        Use</h6>
+                                    <ul class="mb-3">
+                                        <li><strong>Simple Q&amp;A:</strong> Tasks that do not require any tools (the
+                                            metric would grade an interaction that never happens)</li>
+                                        <li><strong>Real API Verification:</strong> The tools are simulated by a judge
+                                            model, not executed — results are realistic but not real data</li>
+                                        <li><strong>Latency/Cost Measurement:</strong> Round-based interaction does not
+                                            reflect real-world latency profiles</li>
+                                        <li><strong>Strictly Deterministic Scoring:</strong> Use DAG metrics when you
+                                            need fixed decision paths instead of open-ended judge reasoning</li>
+                                    </ul>
+
+                                    <div class="alert alert-info mt-3">
+                                        <i class="ph ph-lightbulb me-2"></i>
+                                        <strong>Tip:</strong> Make tool usage an explicit requirement in the test case
+                                        prompt (e.g. "Use the available tools before answering"). Otherwise the model may
+                                        skip the tools entirely, and there is nothing to evaluate.
+                                    </div>
+
+                                    <h6 class="text-primary mb-2">Best Practices for Tool Use</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-success"><i class="ph ph-check me-2"></i>Do's</h6>
+                                            <ul>
+                                                <li>Give tools precise names and descriptions — they are the model's only
+                                                    evidence for choosing between them</li>
+                                                <li>Design the simulation prompt to test behavior, not luck (e.g. withhold
+                                                    the goal until a refined query)</li>
+                                                <li>Keep 5-8 rounds as the limit; unbounded loops inflate cost without
+                                                    insight</li>
+                                                <li>Grade the path (query refinement, error handling), not only the final
+                                                    answer</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-danger"><i class="ph ph-x me-2"></i>Don'ts</h6>
+                                            <ul>
+                                                <li>Don't grade factuality of simulated results — they are judge
+                                                    inventions, not ground truth</li>
+                                                <li>Don't reuse a general Q&amp;A test case; state the tool obligation
+                                                    explicitly</li>
+                                                <li>Don't make every simulation trivially successful — hard scenarios
+                                                    separate good tool usage from lucky answers</li>
+                                                <li>Don't compare scores across different tool definitions</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

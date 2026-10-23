@@ -106,4 +106,11 @@ Encore.addAliases({
     "@constants": path.resolve(__dirname, "assets/js/constants"),
 });
 
+// jsonschema-builder-vue lazily imports monaco-editor for its optional JSON code
+// panel. We run the visual editor only, so alias monaco to an empty stub instead
+// of pulling the (~5 MB) dependency into the bundle.
+Encore.addAliases({
+    "monaco-editor$": path.resolve(__dirname, "assets/js/monaco-stub.js"),
+});
+
 module.exports = Encore.getWebpackConfig();

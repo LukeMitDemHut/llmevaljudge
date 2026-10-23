@@ -830,9 +830,10 @@ Your evaluation:"""
         for line in lines:
             line_stripped = line.strip()
             
-            # Check for SCORE line
-            if line_stripped.startswith('SCORE:'):
-                score_str = line_stripped.replace('SCORE:', '').strip()
+            # Check for SCORE line (tolerant of Markdown bold like "**SCORE:**")
+            score_check = line_stripped.replace('**', '').strip()
+            if score_check.startswith('SCORE:'):
+                score_str = score_check.replace('SCORE:', '').strip()
                 try:
                     score = float(score_str)
                     # Ensure score is in valid range
@@ -843,9 +844,10 @@ Your evaluation:"""
                 capturing_reason = False
                 
             # Check for REASONING line - start capturing everything after this
-            elif line_stripped.startswith('REASONING:'):
+            # (also tolerant of Markdown bold like "**REASONING:**")
+            elif score_check.startswith('REASONING:'):
                 # Get the text on the same line as REASONING:
-                first_reason_part = line_stripped.replace('REASONING:', '').strip()
+                first_reason_part = score_check.replace('REASONING:', '').strip()
                 if first_reason_part:
                     reason_lines.append(first_reason_part)
                 capturing_reason = True
