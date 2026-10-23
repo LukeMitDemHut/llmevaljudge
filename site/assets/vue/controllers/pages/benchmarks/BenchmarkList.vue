@@ -265,7 +265,6 @@ export default {
             return (
                 this.getBenchmarkStatus(benchmark) === "not_started" &&
                 benchmark.models?.length > 0 &&
-                benchmark.testCases?.length > 0 &&
                 benchmark.metrics?.length > 0
             );
         },
@@ -309,7 +308,20 @@ export default {
         },
 
         getTestCaseCount(benchmark) {
-            return benchmark.testCases?.length || 0;
+            // Test case scope lives on the metrics (metric.testCaseIds; empty = all test cases).
+            // Derive the effective count from the metric assignments.
+            const union = new Set();
+            let hasUnscoped = false;
+            for (const metric of benchmark.metrics || []) {
+                const ids = metric.testCaseIds || [];
+                if (ids.length > 0) {
+                    ids.forEach((id) => union.add(id));
+                } else {
+                    hasUnscoped = true;
+                }
+            }
+            if (hasUnscoped) return "all";
+            return union.size;
         },
 
         getMetricCount(benchmark) {

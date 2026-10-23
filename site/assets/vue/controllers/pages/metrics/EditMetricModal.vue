@@ -64,6 +64,21 @@
         </div>
     </InputGroup>
 
+    <!-- Test Case Scope: which test cases this metric applies to (empty = all) -->
+    <InputGroup
+        label="Test Case Scope"
+        class="mt-3"
+        ref="testCaseScopeForm"
+    >
+        <InputMultiCheckbox
+            v-model="metric.testCaseIds"
+            label="Test Cases"
+            :options="testCaseOptions"
+            :required="false"
+            helpText="Leave empty to evaluate against all test cases"
+        />
+    </InputGroup>
+
     <InputMultiCheckbox
         v-model="metric.param"
         v-if="metric.type !== 'tool-use'"
@@ -143,6 +158,10 @@ export default {
             type: Array,
             default: () => [],
         },
+        testCases: {
+            type: Array,
+            default: () => [],
+        },
     },
     data() {
         return {
@@ -160,6 +179,12 @@ export default {
             return this.models.map((model) => ({
                 value: model.id,
                 label: model.name,
+            }));
+        },
+        testCaseOptions() {
+            return (this.testCases || []).map((testCase) => ({
+                value: testCase.id,
+                label: `${testCase.name} (${testCase.promptCount || 0} prompts)`,
             }));
         },
     },
@@ -226,6 +251,9 @@ export default {
                 : true;
             const evaluationValid = this.$refs.evaluationForm
                 ? this.$refs.evaluationForm.validate()
+                : true;
+            const testCaseScopeValid = this.$refs.testCaseScopeForm
+                ? this.$refs.testCaseScopeForm.validate()
                 : true;
 
             // Additional custom validation for metric definitions
@@ -300,7 +328,12 @@ export default {
                 }
             }
 
-            return basicInfoValid && evaluationValid && definitionValid;
+            return (
+                basicInfoValid &&
+                evaluationValid &&
+                testCaseScopeValid &&
+                definitionValid
+            );
         },
         reset() {
             // Reset validation state
@@ -309,6 +342,9 @@ export default {
             }
             if (this.$refs.evaluationForm) {
                 this.$refs.evaluationForm.reset();
+            }
+            if (this.$refs.testCaseScopeForm) {
+                this.$refs.testCaseScopeForm.reset();
             }
         },
     },

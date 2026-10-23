@@ -141,72 +141,8 @@
                 </div>
             </div>
 
-            <!-- Step 3: Select Test Cases -->
+            <!-- Step 3: Select Metrics -->
             <div v-show="currentStep === 2">
-                <h5 class="mb-3">Select Test Cases</h5>
-                <div v-if="benchmarksStore.loading" class="text-center py-4">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden"
-                            >Loading test cases...</span
-                        >
-                    </div>
-                </div>
-                <div
-                    v-else-if="(benchmarksStore.testCases || []).length === 0"
-                    class="text-center py-4"
-                >
-                    <EmptyState
-                        title="No test cases available"
-                        description="You need to create test cases before creating a benchmark."
-                        icon="list-checks"
-                    />
-                </div>
-                <div v-else class="row">
-                    <div
-                        v-for="testCase in benchmarksStore.testCases"
-                        :key="testCase.id"
-                        class="col-12 col-md-6 col-lg-4 mb-3"
-                    >
-                        <Card
-                            class="h-100 cursor-pointer testcase-selection-card"
-                            :class="{
-                                'border-primary bg-primary bg-opacity-10':
-                                    isTestCaseSelected(testCase.id),
-                            }"
-                            @click="toggleTestCase(testCase.id)"
-                        >
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    <input
-                                        type="checkbox"
-                                        :checked="
-                                            isTestCaseSelected(testCase.id)
-                                        "
-                                        class="form-check-input"
-                                        @click.stop
-                                        @change="toggleTestCase(testCase.id)"
-                                    />
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-1">{{ testCase.name }}</h6>
-                                    <small class="text-muted">
-                                        {{ getPromptCount(testCase) }} prompts
-                                    </small>
-                                    <div
-                                        v-if="testCase.description"
-                                        class="small text-muted mt-1"
-                                    >
-                                        {{ testCase.description }}
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 4: Select Metrics -->
-            <div v-show="currentStep === 3">
                 <h5 class="mb-3">Select Metrics</h5>
                 <div v-if="benchmarksStore.loading" class="text-center py-4">
                     <div class="spinner-border" role="status">
@@ -271,8 +207,8 @@
                 </div>
             </div>
 
-            <!-- Step 5: Review & Warnings -->
-            <div v-show="currentStep === 4">
+            <!-- Step 4: Review & Warnings -->
+            <div v-show="currentStep === 3">
                 <h5 class="mb-3">Review Configuration</h5>
 
                 <!-- Configuration Summary -->
@@ -297,11 +233,18 @@
                         <Card>
                             <h6 class="text-primary">
                                 <Icon name="list-checks" class="me-2" />
-                                Test Cases ({{ selectedTestCases.length }})
+                                Test Cases ({{ effectiveTestCaseIds.length }})
                             </h6>
+                            <p
+                                v-if="hasUnscopedMetric"
+                                class="small text-muted mb-2"
+                            >
+                                Includes all test cases for metrics without an
+                                explicit assignment.
+                            </p>
                             <ul class="list-unstyled mb-0 small">
                                 <li
-                                    v-for="testCase in selectedTestCases"
+                                    v-for="testCase in effectiveTestCases"
                                     :key="testCase.id"
                                 >
                                     {{ testCase.name }} ({{
@@ -452,7 +395,6 @@ export default {
             steps: [
                 { key: "basic", title: "Basic Info" },
                 { key: "models", title: "Models" },
-                { key: "testcases", title: "Test Cases" },
                 { key: "metrics", title: "Metrics" },
                 { key: "review", title: "Review" },
             ],
@@ -460,7 +402,6 @@ export default {
                 name: "",
                 repeatCount: 1,
                 modelIds: [],
-                testCaseIds: [],
                 metricIds: [],
             },
         };
@@ -487,9 +428,50 @@ export default {
             );
         },
 
-        selectedTestCases() {
-            return (this.benchmarksStore.testCases || []).filter((tc) =>
-                this.formData.testCaseIds.includes(tc.id),
+        selectedTestCasesAll() {
+            // All test cases known to the app; used as the "empty = all" fallback
+            // for metrics without an explicit test-case assignment.
+            return this.benchmarksStore.testCases || [];
+        },
+
+        /**
+         * Union of test-case IDs over the selected metrics' explicit
+         * assignments (their testCaseIds). Metrics with an empty assignment
+         * contribute "all test cases" on top of the union.
+         */
+        effectiveTestCaseIds() {
+            const allIds = this.selectedTestCasesAll.map((tc) => tc.id);
+            const union = new Set();
+            let hasImplicitAll = false;
+
+            this.selectedMetrics.forEach((metric) => {
+                const assigned = (metric.testCaseIds || []).filter((id) =>
+                    allIds.includes(id),
+                );
+                if (assigned.length > 0) {
+                    assigned.forEach((id) => union.add(id));
+                } else {
+                    hasImplicitAll = true;
+                }
+            });
+
+            if (hasImplicitAll) {
+                allIds.forEach((id) => union.add(id));
+            }
+
+            return allIds.filter((id) => union.has(id));
+        },
+
+        effectiveTestCases() {
+            const ids = this.effectiveTestCaseIds;
+            return this.selectedTestCasesAll.filter((tc) =>
+                ids.includes(tc.id),
+            );
+        },
+
+        hasUnscopedMetric() {
+            return this.selectedMetrics.some(
+                (metric) => (metric.testCaseIds || []).length === 0,
             );
         },
 
@@ -506,8 +488,6 @@ export default {
                 case 1:
                     return this.formData.modelIds.length > 0;
                 case 2:
-                    return this.formData.testCaseIds.length > 0;
-                case 3:
                     return this.formData.metricIds.length > 0;
                 default:
                     return true;
@@ -518,7 +498,6 @@ export default {
             return (
                 this.formData.name.trim().length > 0 &&
                 this.formData.modelIds.length > 0 &&
-                this.formData.testCaseIds.length > 0 &&
                 this.formData.metricIds.length > 0
             );
         },
@@ -526,47 +505,76 @@ export default {
         warnings() {
             const warnings = [];
 
-            // Check for metric parameter compatibility
-            const requiredParams = new Set();
+            // Count (prompt, metric) pairs that will be skipped because the
+            // prompt lacks params the metric requires (real pairing data,
+            // mirroring MetricTestCaseResolver::pairSatisfiesParams).
+            const requiredParamsByMetric = new Map();
             this.selectedMetrics.forEach((metric) => {
-                if (metric.definition && Array.isArray(metric.definition)) {
-                    metric.definition.forEach((param) =>
-                        requiredParams.add(param),
-                    );
-                }
+                const params = new Set(metric.param || []);
+                requiredParamsByMetric.set(metric.id, params);
             });
 
-            if (requiredParams.has("expected_output")) {
-                const promptsWithoutExpectedOutput =
-                    this.getTotalPromptsWithoutExpectedOutput();
-                if (promptsWithoutExpectedOutput > 0) {
-                    warnings.push(
-                        `${promptsWithoutExpectedOutput} prompts will be skipped because they lack expected output required by selected metrics.`,
-                    );
-                }
+            let skippedPairsWithoutExpectedOutput = 0;
+            let skippedPairsWithoutContext = 0;
+
+            this.selectedMetrics.forEach((metric) => {
+                const params = requiredParamsByMetric.get(metric.id);
+                const scopedTestCaseIds = metric.testCaseIds || [];
+                const scopedTestCases =
+                    scopedTestCaseIds.length > 0
+                        ? this.selectedTestCasesAll.filter((tc) =>
+                              scopedTestCaseIds.includes(tc.id),
+                          )
+                        : this.selectedTestCasesAll;
+
+                scopedTestCases.forEach((testCase) => {
+                    (testCase.prompts || []).forEach((prompt) => {
+                        if (
+                            params.has("expected_output") &&
+                            !prompt.expectedOutput
+                        ) {
+                            skippedPairsWithoutExpectedOutput++;
+                        }
+                        if (params.has("context") && !prompt.context) {
+                            skippedPairsWithoutContext++;
+                        }
+                    });
+                });
+            });
+
+            if (skippedPairsWithoutExpectedOutput > 0) {
+                warnings.push(
+                    `${skippedPairsWithoutExpectedOutput} prompt/metric evaluations will be skipped because the prompts lack expected output required by selected metrics.`,
+                );
             }
 
-            if (requiredParams.has("context")) {
-                const promptsWithoutContext =
-                    this.getTotalPromptsWithoutContext();
-                if (promptsWithoutContext > 0) {
-                    warnings.push(
-                        `${promptsWithoutContext} prompts will be skipped because they lack context required by selected metrics.`,
-                    );
-                }
+            if (skippedPairsWithoutContext > 0) {
+                warnings.push(
+                    `${skippedPairsWithoutContext} prompt/metric evaluations will be skipped because the prompts lack context required by selected metrics.`,
+                );
             }
 
             return warnings;
         },
 
+        /**
+         * Total evaluations = sum over selected metrics of
+         * (pairable prompts in the metric's effective test cases
+         * x models x repeats). Mirrors the metric-outer dispatch order
+         * of RunBenchmarkHandler / EvaluatePromptHandler.
+         */
         totalEvaluations() {
-            const validPrompts = this.getTotalValidPrompts();
-            return (
-                validPrompts *
-                this.selectedModels.length *
-                this.selectedMetrics.length *
-                (this.formData.repeatCount || 1)
+            const repeatCount = this.formData.repeatCount || 1;
+            const modelCount = this.selectedModels.length;
+
+            const totalPairablePrompts = this.selectedMetrics.reduce(
+                (metricSum, metric) =>
+                    metricSum +
+                    this.getPairablePromptsForMetric(metric).length,
+                0,
             );
+
+            return totalPairablePrompts * modelCount * repeatCount;
         },
     },
 
@@ -584,14 +592,11 @@ export default {
                 console.log("Editing benchmark:", this.benchmark);
                 console.log("Benchmark models:", this.benchmark.models);
                 console.log("Benchmark metrics:", this.benchmark.metrics);
-                console.log("Benchmark testCases:", this.benchmark.testCases);
 
                 this.formData = {
                     name: this.benchmark.name || "",
                     repeatCount: this.benchmark.repeatCount || 1,
                     modelIds: this.benchmark.models?.map((m) => m.id) || [],
-                    testCaseIds:
-                        this.benchmark.testCases?.map((tc) => tc.id) || [],
                     metricIds: this.benchmark.metrics?.map((m) => m.id) || [],
                 };
 
@@ -618,19 +623,6 @@ export default {
                 this.formData.modelIds.splice(index, 1);
             } else {
                 this.formData.modelIds.push(modelId);
-            }
-        },
-
-        isTestCaseSelected(testCaseId) {
-            return this.formData.testCaseIds.includes(testCaseId);
-        },
-
-        toggleTestCase(testCaseId) {
-            const index = this.formData.testCaseIds.indexOf(testCaseId);
-            if (index > -1) {
-                this.formData.testCaseIds.splice(index, 1);
-            } else {
-                this.formData.testCaseIds.push(testCaseId);
             }
         },
 
@@ -667,21 +659,74 @@ export default {
         },
 
         getTotalValidPrompts() {
-            // This is a simplified calculation - in reality, you'd need to check each prompt
-            // against the selected metrics' requirements
-            return this.selectedTestCases.reduce((total, testCase) => {
-                return total + this.getPromptCount(testCase);
-            }, 0);
+            /**
+             * Prompts across the effective (unioned) test cases that can
+             * actually run: a (prompt, metric) pair runs only when the metric's
+             * params are satisfied by the prompt (empty = all applies per
+             * metric). Falls back to all prompts of the effective test cases
+             * when no metric/params are known.
+             */
+            if (this.selectedMetrics.length === 0) {
+                return this.effectiveTestCases.reduce(
+                    (total, testCase) => total + this.getPromptCount(testCase),
+                    0,
+                );
+            }
+
+            const prompts = this.selectedMetrics.reduce(
+                (all, metric) =>
+                    all.concat(this.getPairablePromptsForMetric(metric)),
+                [],
+            );
+            return prompts.length;
         },
 
-        getTotalPromptsWithoutExpectedOutput() {
-            // Simplified - would need actual prompt data
-            return Math.floor(this.getTotalValidPrompts() * 0.1); // Assuming 10% might lack expected output
+        /**
+         * Effective test cases for one metric: its explicit testCaseIds, or
+         * ALL known test cases when the assignment is empty (empty = all).
+         * Mirrors MetricTestCaseResolver::getEffectiveTestCasesForMetric.
+         */
+        getEffectiveTestCasesForMetric(metric) {
+            const scopedTestCaseIds = metric.testCaseIds || [];
+
+            if (scopedTestCaseIds.length === 0) {
+                return this.selectedTestCasesAll;
+            }
+
+            return this.selectedTestCasesAll.filter((tc) =>
+                scopedTestCaseIds.includes(tc.id),
+            );
         },
 
-        getTotalPromptsWithoutContext() {
-            // Simplified - would need actual prompt data
-            return Math.floor(this.getTotalValidPrompts() * 0.05); // Assuming 5% might lack context
+        /**
+         * Pairable (prompt, metric) pairs for one metric: the prompts of the
+         * metric's effective test cases that satisfy the metric's params —
+         * mirroring MetricTestCaseResolver::pairSatisfiesParams. The metric's
+         * own testCaseIds (not the overall union) decide the scope here,
+         * because empty = all applies per metric.
+         */
+        getPairablePromptsForMetric(metric) {
+            const params = metric.param || [];
+            return this.getEffectiveTestCasesForMetric(metric).reduce(
+                (pairable, testCase) =>
+                    pairable.concat(
+                        (testCase.prompts || []).filter((prompt) =>
+                            params.every((param) => {
+                                switch (param) {
+                                    case "input":
+                                        return !!prompt.input;
+                                    case "expected_output":
+                                        return !!prompt.expectedOutput;
+                                    case "context":
+                                        return !!prompt.context;
+                                    default:
+                                        return true; // actual_output is generated during execution
+                                }
+                            }),
+                        ),
+                    ),
+                [],
+            );
         },
 
         async saveBenchmark() {
@@ -692,7 +737,6 @@ export default {
                     name: this.formData.name,
                     repeatCount: this.formData.repeatCount,
                     modelIds: this.formData.modelIds,
-                    testCaseIds: this.formData.testCaseIds,
                     metricIds: this.formData.metricIds,
                 };
 

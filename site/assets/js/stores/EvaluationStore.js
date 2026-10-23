@@ -71,12 +71,23 @@ export const useEvaluationStore = defineStore("evaluation", {
             }));
         },
         getAvailableBenchmarks() {
-            return this.data.benchmarks.map((benchmark) => ({
-                id: benchmark.id,
-                label: `[${benchmark.id}] Benchmark ${benchmark.id} (${
-                    benchmark.testCases?.length || 0
-                } test cases)`,
-            }));
+            // Test case scope lives on the metrics; derive the effective count from metric assignments.
+            return this.data.benchmarks.map((benchmark) => {
+                const union = new Set();
+                let hasUnscoped = false;
+                for (const metric of benchmark.metrics || []) {
+                    const ids = metric.testCaseIds || [];
+                    if (ids.length > 0) ids.forEach((id) => union.add(id));
+                    else hasUnscoped = true;
+                }
+                const tcLabel = hasUnscoped
+                    ? "all test cases"
+                    : `${union.size} test cases`;
+                return {
+                    id: benchmark.id,
+                    label: `[${benchmark.id}] Benchmark ${benchmark.id} (${tcLabel})`,
+                };
+            });
         },
         getAvailablePrompts() {
             return this.data.prompts.map((prompt) => {

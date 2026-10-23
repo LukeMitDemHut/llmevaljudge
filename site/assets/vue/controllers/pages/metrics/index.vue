@@ -59,6 +59,7 @@
             :metric="currentMetric"
             :models="models"
             :availableParams="availableParams"
+            :testCases="testCases"
         />
 
         <!-- Show store errors if any -->
@@ -161,6 +162,10 @@ export default {
             type: Array,
             default: () => [],
         },
+        testCases: {
+            type: Array,
+            default: () => [],
+        },
     },
     data() {
         return {
@@ -191,6 +196,9 @@ export default {
                 id: null, // Clear ID for new metric
                 name: metric.name + " (Copy)", // Append "(Copy)" to name
                 ratingModelId: metric.ratingModel?.id || null, // Extract ID from nested object if it exists
+                testCaseIds: metric.testCaseIds
+                    ? [...metric.testCaseIds]
+                    : [], // Same test case scope as the source metric
             };
             this.editMetricModal = true;
         },
@@ -198,6 +206,9 @@ export default {
             this.currentMetric = {
                 ...metric,
                 ratingModelId: metric.ratingModel?.id || null, // Extract ID from nested object if it exists
+                testCaseIds: metric.testCaseIds
+                    ? [...metric.testCaseIds]
+                    : [], // Edit init: explicit assignment or empty (= all test cases)
             };
             this.editMetricModal = true;
         },
@@ -215,6 +226,7 @@ export default {
                 },
                 param: [],
                 threshold: null,
+                testCaseIds: [], // Empty = evaluate against all test cases
             };
             this.editMetricModal = true;
         },
@@ -239,6 +251,7 @@ export default {
                     threshold: this.currentMetric.threshold,
                     param: this.currentMetric.param || [],
                     definition: this.currentMetric.definition || {},
+                    testCaseIds: this.currentMetric.testCaseIds || [], // Empty = all test cases
                 };
 
                 // Additional validation to ensure ratingModelId is not null
